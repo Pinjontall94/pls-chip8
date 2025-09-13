@@ -22,14 +22,18 @@
 #define u16 short unsigned
 #define i16 short signed
 
+/* function prototypes */
 boule init_chip8(struct Chip8* chip8);
 boule destroy_chip8(struct Chip8* chip8);
-boule address_in_bounds(u16 address);
+static void assert_address_in_bounds(u16 address);
 u8 peek(struct Chip8* chip8, u16 address);
 boule poke(struct Chip8* chip8, u16 address, u8 value);
-boule stack_out_of_bounds(struct Chip8* chip8);
+static void assert_stack_in_bounds(struct Chip8* chip8);
 boule push(struct Chip8* chip8, u16 value);
 u16 pop(struct Chip8* chip8);
+static void assert_pixel_in_bounds(int x, int y);
+boule get_pixel(boule** display, int x, int y);
+void set_pixel(boule** display, int x, int y);
 
 /* Structs */
 struct Registers {
@@ -48,27 +52,27 @@ struct Chip8 {
 	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
 };
 
+static char unsigned character_set[] = {
+0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+0x20, 0x60, 0x20, 0x20, 0x70, // 1
+0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
+
 /* Init & Deallocate Machine Instance */
 boule init_chip8(struct Chip8* chip8) {
-	char unsigned character_set[] = {
-	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-	0x20, 0x60, 0x20, 0x20, 0x70, // 1
-	0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-	0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-	0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-	0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-	0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-	0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-	0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-	0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-	0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-	0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-	0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-	0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-	0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-	0xF0, 0x80, 0xF0, 0x80, 0x80  // F
-	};
-
 	chip8 = malloc(sizeof(struct Chip8));
 	if (chip8) {
 		memcpy(chip8->memory, character_set, sizeof(character_set));
@@ -85,23 +89,22 @@ boule destroy_chip8(struct Chip8* chip8) {
 }
 
 /* MEMORY */
-boule address_in_bounds(u16 address) {
-	return 0 <= address <= CHIP8_MEMORY_SIZE ? true : false;
+static void assert_address_in_bounds(u16 address) {
+	if (address > CHIP8_MEMORY_SIZE) {
+		fprintf(stderr, "invalid address encountered: %i\n", address);
+		exit(EXIT_FAILURE);
+	};
 }
 
 u8 peek(struct Chip8* chip8, u16 address) {
-	if (!address_in_bounds(address)) return NULL;
+	assert_address_in_bounds(address);
 	return chip8->memory[address];
 }
 
 boule poke(struct Chip8* chip8, u16 address, u8 value) {
-	if (!address_in_bounds(address)) {
-		return false;
-	}
-	else {
-		chip8->memory[address] = value;
-		return true;
-	}
+	assert_address_in_bounds(address);
+	chip8->memory[address] = value;
+	return true;
 }
 
 /* STACK
@@ -118,10 +121,13 @@ boule poke(struct Chip8* chip8, u16 address, u8 value) {
 *     pop  OKAY (SP-- then pop)
 */
 
-boule stack_out_of_bounds(struct Chip8* chip8) {
+static void assert_stack_in_bounds(struct Chip8* chip8) {
 	/* unsigned, so no need to check for negatives */
 	/* just need to make sure no greater than 0xf or 15 */
-	return chip8->registers.SP >= CHIP8_TOTAL_STACK_DEPTH ? true : false;
+	if (chip8->registers.SP >= CHIP8_TOTAL_STACK_DEPTH) {
+		fprintf(stderr, "stack over/underflow!");
+		exit(EXIT_FAILURE);
+	}
 }
 
 boule push(struct Chip8* chip8, u16 value) {
@@ -129,10 +135,7 @@ boule push(struct Chip8* chip8, u16 value) {
 	 * see if it's 0x10 <-> 0xff (invalid). Then, push to
 	 * the current SP, and increment to point to new FREE stack slot
 	 */
-	if (stack_out_of_bounds(chip8->registers.SP)) {
-		fprintf(stderr, "stack overflow!");
-		return false;
-	}
+	assert_stack_in_bounds(chip8->registers.SP);
 	chip8->stack[chip8->registers.SP] = value;
 	chip8->registers.SP++;
 	return true;
@@ -147,10 +150,28 @@ u16 pop(struct Chip8* chip8) {
 	 *          SP-- on SP == 0 is NOT
 	 */
 	chip8->registers.SP--;
-	if (stack_out_of_bounds(chip8)) {
-		fprintf(stderr, "stack underflow!");
-		return NULL;
-	}
+	assert_stack_in_bounds(chip8->registers.SP);
 	value = chip8->stack[chip8->registers.SP];
 	return value;
+}
+
+/* Display */
+static void pixel_in_bounds(int x, int y) {
+	if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT) {
+		return;
+	}
+	else {
+		fprintf(stderr, "pixel out of bounds: %i, %i\n", x, y);
+		exit(EXIT_FAILURE);
+	}
+}
+
+boule get_pixel(bool** screen, int x, int y) {
+	pixel_in_bounds(x, y);
+	return screen[y][x];
+}
+
+void set_pixel(bool** screen, int x, int y) {
+	pixel_in_bounds(x, y);
+	screen[y][x] = true;
 }
