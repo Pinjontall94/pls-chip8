@@ -69,7 +69,7 @@ boule init_chip8(struct Chip8* chip8) {
 	0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 	};
 
-	chip8 = (struct Chip8*)malloc(sizeof(struct Chip8));
+	chip8 = malloc(sizeof(struct Chip8));
 	if (chip8) {
 		memcpy(chip8->memory, character_set, sizeof(character_set));
 		return true;
