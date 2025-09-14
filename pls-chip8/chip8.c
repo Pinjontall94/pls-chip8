@@ -36,7 +36,9 @@ u16 pop(struct Chip8* chip8);
 static void assert_pixel_in_bounds(int x, int y);
 boule get_pixel(boule** display, int x, int y);
 void set_pixel(boule** display, int x, int y);
-static void assert_key_in_bounds(char key);
+static void assert_key_in_bounds(u8 key);
+void key_up(boule* keyboard, u8 key);
+void key_down(boule* keyboard, u8 key);
 
 /* external hardware prototypes */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
