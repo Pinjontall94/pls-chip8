@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
+#include <assert.h>
 
 /* CONSTANTS */
 #define WINDOW_MULTIPLIER 10
@@ -34,6 +36,8 @@ u16 pop(struct Chip8* chip8);
 static void assert_pixel_in_bounds(int x, int y);
 boule get_pixel(boule** display, int x, int y);
 void set_pixel(boule** display, int x, int y);
+
+void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
 
 /* Structs */
 struct Registers {
@@ -90,10 +94,7 @@ boule destroy_chip8(struct Chip8* chip8) {
 
 /* MEMORY */
 static void assert_address_in_bounds(u16 address) {
-	if (address > CHIP8_MEMORY_SIZE) {
-		fprintf(stderr, "invalid address encountered: %i\n", address);
-		exit(EXIT_FAILURE);
-	};
+	assert(address <= CHIP8_MEMORY_SIZE);
 }
 
 u8 peek(struct Chip8* chip8, u16 address) {
@@ -124,10 +125,7 @@ boule poke(struct Chip8* chip8, u16 address, u8 value) {
 static void assert_stack_in_bounds(struct Chip8* chip8) {
 	/* unsigned, so no need to check for negatives */
 	/* just need to make sure no greater than 0xf or 15 */
-	if (chip8->registers.SP >= CHIP8_TOTAL_STACK_DEPTH) {
-		fprintf(stderr, "stack over/underflow!");
-		exit(EXIT_FAILURE);
-	}
+	assert(chip8->registers.SP < CHIP8_TOTAL_STACK_DEPTH);
 }
 
 boule push(struct Chip8* chip8, u16 value) {
@@ -156,22 +154,43 @@ u16 pop(struct Chip8* chip8) {
 }
 
 /* Display */
-static void pixel_in_bounds(int x, int y) {
-	if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT) {
-		return;
-	}
-	else {
-		fprintf(stderr, "pixel out of bounds: %i, %i\n", x, y);
-		exit(EXIT_FAILURE);
-	}
+static void assert_pixel_in_bounds(int x, int y) {
+	assert(x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT);
 }
 
 boule get_pixel(bool** screen, int x, int y) {
-	pixel_in_bounds(x, y);
+	assert_pixel_in_bounds(x, y);
 	return screen[y][x];
 }
 
 void set_pixel(bool** screen, int x, int y) {
-	pixel_in_bounds(x, y);
+	assert_pixel_in_bounds(x, y);
 	screen[y][x] = true;
+}
+
+void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume)
+{
+	// Make sure freq is below nyquist and volume isn't too loud [WARNING: DO NOT USE HEADPHONES]
+	int i;
+	i16 MAX, value, final_value;
+	float delta, phase;
+	
+	MAX = floor(65535.0 / 2.0);
+	delta = (float)pitch / sample_rate;
+	phase = 0.00;
+	value = 0;
+	final_value = 0;
+
+	assert(pitch < (sample_rate / 2) && volume > 0.00 && volume < 0.1);
+	for (i = 0; i < buffer_length; i++)
+	{
+		if (phase < 0.5) value = MAX;
+		else value = -1 * MAX;
+
+		final_value = (i16)(value * volume);
+		phase += delta; // heart of the oscillator: linearly track delta as phase increases
+		if (phase >= 1)
+			phase -= 1;
+		buffer[i] = final_value;
+	}
 }
