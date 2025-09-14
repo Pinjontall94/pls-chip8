@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 /* CONSTANTS */
 #define WINDOW_MULTIPLIER 10
@@ -24,32 +25,6 @@
 #define u16 short unsigned
 #define i16 short signed
 
-/****************************************************************************** 
- * Function Prototypes 
- *****************************************************************************/
-boule init_chip8(struct Chip8* chip8);
-boule destroy_chip8(struct Chip8* chip8);
-static void assert_address_in_bounds(u16 address);
-u8 peek(struct Chip8* chip8, u16 address);
-boule poke(struct Chip8* chip8, u16 address, u8 value);
-static void assert_stack_in_bounds(struct Chip8* chip8);
-boule push(struct Chip8* chip8, u16 value);
-u16 pop(struct Chip8* chip8);
-static void assert_pixel_in_bounds(int x, int y);
-boule get_pixel(boule** display, int x, int y);
-void set_pixel(boule** display, int x, int y);
-static void assert_key_in_bounds(u8 key);
-void key_up(boule* keyboard, u8 key);
-void key_down(boule* keyboard, u8 key);
-
-/* Emulation cycle */
-void fetch(struct Chip8* chip8, union Instruction* instruction);
-void decode_and_execute(struct Chip8* chip8, union Instruction* instruction);
-
-/* external hardware prototypes */
-i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
-void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
-
 /* Structs, Enums */
 struct Registers {
 	u8 V[CHIP8_NUM_DATA_REGISTERS];
@@ -59,13 +34,13 @@ struct Registers {
 	u16 PC;
 };
 
-struct Chip8 {
+typedef struct Chip8 {
 	boule screen[SCREEN_HEIGHT][SCREEN_WIDTH];
 	u8 memory[CHIP8_MEMORY_SIZE];
 	boule keyboard[CHIP8_TOTAL_KEYS];
 	struct Registers registers;
 	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
-};
+} Chip8;
 
 union Instruction {
 	struct {
@@ -83,31 +58,58 @@ enum ScanCode {
 };
 
 static u8 character_set[] = {
-0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-0x20, 0x60, 0x20, 0x20, 0x70, // 1
-0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+0xF0, 0x90, 0x90, 0x90, 0xF0, /* 0 */
+0x20, 0x60, 0x20, 0x20, 0x70, /* 1 */
+0xF0, 0x10, 0xF0, 0x80, 0xF0, /* 2 */
+0xF0, 0x10, 0xF0, 0x10, 0xF0, /* 3 */
+0x90, 0x90, 0xF0, 0x10, 0x10, /* 4 */
+0xF0, 0x80, 0xF0, 0x10, 0xF0, /* 5 */
+0xF0, 0x80, 0xF0, 0x90, 0xF0, /* 6 */
+0xF0, 0x10, 0x20, 0x40, 0x40, /* 7 */
+0xF0, 0x90, 0xF0, 0x90, 0xF0, /* 8 */
+0xF0, 0x90, 0xF0, 0x10, 0xF0, /* 9 */
+0xF0, 0x90, 0xF0, 0x90, 0x90, /* A */
+0xE0, 0x90, 0xE0, 0x90, 0xE0, /* B */
+0xF0, 0x80, 0x80, 0x80, 0xF0, /* C */
+0xE0, 0x90, 0x90, 0x90, 0xE0, /* D */
+0xF0, 0x80, 0xF0, 0x80, 0xF0, /* E */
+0xF0, 0x80, 0xF0, 0x80, 0x80  /* F */
 };
+
+/****************************************************************************** 
+ * Function Prototypes 
+ *****************************************************************************/
+boule init_chip8(Chip8* chip8);
+void destroy_chip8(Chip8* chip8);
+static void assert_address_in_bounds(u16 address);
+u8 peek(Chip8* chip8, u16 address);
+boule poke(Chip8* chip8, u16 address, u8 value);
+static void assert_stack_in_bounds(u16 SP);
+boule push(Chip8* chip8, u16 value);
+u16 pop(Chip8* chip8);
+static void assert_pixel_in_bounds(int x, int y);
+boule get_pixel(boule** display, int x, int y);
+void set_pixel(boule** display, int x, int y);
+static void assert_key_in_bounds(u8 key);
+void key_up(boule* keyboard, u8 key);
+void key_down(boule* keyboard, u8 key);
+
+/* Emulation cycle */
+void fetch(Chip8* chip8, union Instruction* instruction);
+void decode_and_execute(Chip8* chip8, union Instruction* instruction);
+
+/* external hardware prototypes */
+i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
+void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
+
 
 /****************************************************************************** 
 * IMPLEMENTATION
 ******************************************************************************/
 
 /* Init & Deallocate Machine Instance */
-boule init_chip8(struct Chip8* chip8) {
-	chip8 = malloc(sizeof(struct Chip8));
+boule init_chip8(Chip8* chip8) {
+	chip8 = malloc(sizeof(Chip8));
 	if (chip8) {
 		memcpy(chip8->memory, character_set, sizeof(character_set));
 		return true;
@@ -118,7 +120,7 @@ boule init_chip8(struct Chip8* chip8) {
 }
 
 
-boule destroy_chip8(struct Chip8* chip8) {
+void destroy_chip8(Chip8* chip8) {
 	free(chip8);
 }
 
@@ -127,12 +129,12 @@ static void assert_address_in_bounds(u16 address) {
 	assert(address <= CHIP8_MEMORY_SIZE);
 }
 
-u8 peek(struct Chip8* chip8, u16 address) {
+u8 peek(Chip8* chip8, u16 address) {
 	assert_address_in_bounds(address);
 	return chip8->memory[address];
 }
 
-boule poke(struct Chip8* chip8, u16 address, u8 value) {
+boule poke(Chip8* chip8, u16 address, u8 value) {
 	assert_address_in_bounds(address);
 	chip8->memory[address] = value;
 	return true;
@@ -152,13 +154,13 @@ boule poke(struct Chip8* chip8, u16 address, u8 value) {
 *     pop  OKAY (SP-- then pop)
 */
 
-static void assert_stack_in_bounds(struct Chip8* chip8) {
+static void assert_stack_in_bounds(u16 SP) {
 	/* unsigned, so no need to check for negatives */
 	/* just need to make sure no greater than 0xf or 15 */
-	assert(chip8->registers.SP < CHIP8_TOTAL_STACK_DEPTH);
+	assert(SP < CHIP8_TOTAL_STACK_DEPTH);
 }
 
-boule push(struct Chip8* chip8, u16 value) {
+boule push(Chip8* chip8, u16 value) {
 	/* Check the stack pointer bounds before operation to
 	 * see if it's 0x10 <-> 0xff (invalid). Then, push to
 	 * the current SP, and increment to point to new FREE stack slot
@@ -169,8 +171,8 @@ boule push(struct Chip8* chip8, u16 value) {
 	return true;
 }
 
-u16 pop(struct Chip8* chip8) {
-	u8 value = NULL;
+u16 pop(Chip8* chip8) {
+	u8 value = 0;
 	/* Decrement SP before pulling value,
 	 * bc it's the index of the next FREE stack slot, NOT the amount stored
 	 *
@@ -217,7 +219,7 @@ void key_down(boule* keyboard, u8 key) {
 * FETCH/DECODE/EXECUTE LOOP 
 ******************************************************************************/
 
-void fetch(struct Chip8* chip8, union Instruction* instruction) {
+void fetch(Chip8* chip8, union Instruction* instruction) {
 	u8* ram;
 	u16* PC;
 	
@@ -228,7 +230,7 @@ void fetch(struct Chip8* chip8, union Instruction* instruction) {
 	instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
 	*PC = *PC + 2;
 }
-void decode_and_execute(struct Chip8* chip8, union Instruction* instruction) {
+void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 	int bitmask;
 	u8 opcode;
 	bitmask = 0xF000; /* 1111 0000 0000 0000 */
@@ -306,8 +308,8 @@ void square_oscillator(
 	float volume
 )
 {
-	// Make sure freq is below nyquist and volume isn't too loud 
-	// [WARNING: DO NOT USE HEADPHONES]
+	/* Make sure freq is below nyquist and volume isn't too loud 
+	 * [WARNING: DO NOT USE HEADPHONES] */
 	int i;
 	i16 MAX, value, final_value;
 	float delta, phase;
@@ -325,7 +327,7 @@ void square_oscillator(
 		else value = -1 * MAX;
 
 		final_value = (i16)(value * volume);
-		phase += delta; // heart of the oscillator: inc phase by [delta] amount
+		phase += delta; /* heart of the oscillator: inc phase by [delta] amount */
 		if (phase >= 1)
 			phase -= 1;
 		buffer[i] = final_value;
