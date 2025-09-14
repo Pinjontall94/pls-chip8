@@ -37,6 +37,7 @@ static void assert_pixel_in_bounds(int x, int y);
 boule get_pixel(boule** display, int x, int y);
 void set_pixel(boule** display, int x, int y);
 
+/* external hardware prototypes */
 void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
 
 /* Structs */
@@ -158,19 +159,29 @@ static void assert_pixel_in_bounds(int x, int y) {
 	assert(x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT);
 }
 
-boule get_pixel(bool** screen, int x, int y) {
+boule get_pixel(boule** screen, int x, int y) {
 	assert_pixel_in_bounds(x, y);
 	return screen[y][x];
 }
 
-void set_pixel(bool** screen, int x, int y) {
+void set_pixel(boule** screen, int x, int y) {
 	assert_pixel_in_bounds(x, y);
 	screen[y][x] = true;
 }
 
-void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume)
+/******************************************************************************
+* External Hardware (i.e. not in the chip8 spec)
+* ****************************************************************************/
+void square_oscillator(
+	i16* buffer,
+	int buffer_length,
+	int long sample_rate,
+	int pitch,
+	float volume
+)
 {
-	// Make sure freq is below nyquist and volume isn't too loud [WARNING: DO NOT USE HEADPHONES]
+	// Make sure freq is below nyquist and volume isn't too loud 
+	// [WARNING: DO NOT USE HEADPHONES]
 	int i;
 	i16 MAX, value, final_value;
 	float delta, phase;
