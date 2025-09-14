@@ -43,9 +43,8 @@ void key_up(boule* keyboard, u8 key);
 void key_down(boule* keyboard, u8 key);
 
 /* Emulation cycle */
-void fetch(struct Chip8* chip8);
-void decode(struct Chip8* chip8);
-void execute(struct Chip8* chip8);
+void fetch(struct Chip8* chip8, union Instruction* instruction);
+void decode_and_execute(struct Chip8* chip8, union Instruction* instruction);
 
 /* external hardware prototypes */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
@@ -229,9 +228,48 @@ void fetch(struct Chip8* chip8, union Instruction* instruction) {
 	instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
 	*PC = *PC + 2;
 }
-void decode(struct Chip8* chip8, union Instruction* instruction);
-void execute(struct Chip8* chip8);
-
+void decode_and_execute(struct Chip8* chip8, union Instruction* instruction) {
+	int bitmask;
+	u8 opcode;
+	bitmask = 0xF000; /* 1111 0000 0000 0000 */
+	opcode = (instruction->word & bitmask) >> 3; /* Pull the first nybble off; ---- ---- ---> 1111 */
+	switch (opcode) {
+	case 1:
+		break;
+	case 2:
+		break;
+	case 3:
+		break;
+	case 4:
+		break;
+	case 5:
+		break;
+	case 6:
+		break;
+	case 7000:
+		break;
+	case 8:
+		break;
+	case 9:
+		break;
+	case 0xa:
+		break;
+	case 0xb:
+		break;
+	case 0xc:
+		break;
+	case 0xd:
+		break;
+	case 0xe:
+		break;
+	case 0xf:
+		break;
+		default:
+			fprintf(stderr, "invalid opcode! %i\n", opcode);
+			exit(EXIT_FAILURE);
+			break;
+	}
+}
 
 /******************************************************************************
 * External Hardware (i.e. not in the chip8 spec)
