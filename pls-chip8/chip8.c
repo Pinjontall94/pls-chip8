@@ -53,8 +53,8 @@ struct Registers {
 
 struct Chip8 {
 	boule screen[SCREEN_HEIGHT][SCREEN_WIDTH];
-	u8 memory[0x1000];
-	u8 keyboard[0xf];
+	u8 memory[CHIP8_MEMORY_SIZE];
+	boule keyboard[CHIP8_TOTAL_KEYS];
 	struct Registers registers;
 	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
 };
@@ -179,11 +179,19 @@ void set_pixel(boule** screen, int x, int y) {
 }
 
 /* KEYBOARD */
-static void assert_key_in_bounds(char key) {
+static void assert_key_in_bounds(u8 key) {
 	assert(key >= 0 && key < CHIP8_TOTAL_KEYS);
 }
 
+void key_up(boule* keyboard, u8 key) {
+	assert_key_in_bounds(key);
+	keyboard[key] = false;
+}
 
+void key_down(boule* keyboard, u8 key) {
+	assert_key_in_bounds(key);
+	keyboard[key] = true;
+}
 
 
 /******************************************************************************
