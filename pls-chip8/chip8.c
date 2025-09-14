@@ -218,11 +218,18 @@ void key_down(boule* keyboard, u8 key) {
 * FETCH/DECODE/EXECUTE LOOP 
 ******************************************************************************/
 
-void fetch(struct Chip8* chip8) {
-	u8 hi_byte, lo_byte;
-	u16 op
+void fetch(struct Chip8* chip8, union Instruction* instruction) {
+	u8* ram;
+	u16* PC;
+	
+	ram = &chip8->memory;
+	PC = &chip8->registers.PC;
+
+	instruction->bytes.hi_byte = peek(chip8, (*PC) + 0);
+	instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
+	*PC = *PC + 2;
 }
-void decode(struct Chip8* chip8);
+void decode(struct Chip8* chip8, union Instruction* instruction);
 void execute(struct Chip8* chip8);
 
 
