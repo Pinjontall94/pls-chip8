@@ -24,7 +24,9 @@
 #define u16 short unsigned
 #define i16 short signed
 
-/* function prototypes */
+/****************************************************************************** 
+ * Function Prototypes 
+ *****************************************************************************/
 boule init_chip8(struct Chip8* chip8);
 boule destroy_chip8(struct Chip8* chip8);
 static void assert_address_in_bounds(u16 address);
@@ -44,7 +46,7 @@ void key_down(boule* keyboard, u8 key);
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
 void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
 
-/* Structs */
+/* Structs, Enums */
 struct Registers {
 	u8 V[CHIP8_NUM_DATA_REGISTERS];
 	u16 I;
@@ -250,7 +252,7 @@ void square_oscillator(
 		else value = -1 * MAX;
 
 		final_value = (i16)(value * volume);
-		phase += delta; // heart of the oscillator: linearly track delta as phase increases
+		phase += delta; // heart of the oscillator: inc phase by [delta] amount
 		if (phase >= 1)
 			phase -= 1;
 		buffer[i] = final_value;
