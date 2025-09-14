@@ -36,8 +36,10 @@ u16 pop(struct Chip8* chip8);
 static void assert_pixel_in_bounds(int x, int y);
 boule get_pixel(boule** display, int x, int y);
 void set_pixel(boule** display, int x, int y);
+static void assert_key_in_bounds(char key);
 
 /* external hardware prototypes */
+i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
 void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
 
 /* Structs */
@@ -57,7 +59,14 @@ struct Chip8 {
 	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
 };
 
-static char unsigned character_set[] = {
+enum ScanCode {
+	KEY_1 = 2, KEY_2 = 3, KEY_3 = 4, KEY_4 = 5,
+	KEY_q = 16, KEY_w = 17, KEY_e = 18, KEY_r = 19,
+	KEY_a = 30, KEY_s = 31, KEY_d = 32, KEY_f = 33,
+	KEY_z = 44, KEY_x = 45, KEY_c = 46, KEY_v = 47
+};
+
+static u8 character_set[] = {
 0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
 0x20, 0x60, 0x20, 0x20, 0x70, // 1
 0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -154,7 +163,7 @@ u16 pop(struct Chip8* chip8) {
 	return value;
 }
 
-/* Display */
+/* DISPLAY */
 static void assert_pixel_in_bounds(int x, int y) {
 	assert(x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT);
 }
@@ -169,9 +178,41 @@ void set_pixel(boule** screen, int x, int y) {
 	screen[y][x] = true;
 }
 
+/* KEYBOARD */
+static void assert_key_in_bounds(char key) {
+	assert(key >= 0 && key < CHIP8_TOTAL_KEYS);
+}
+
+
+
+
 /******************************************************************************
 * External Hardware (i.e. not in the chip8 spec)
 * ****************************************************************************/
+/* KEYBOARD MAPPING */
+i8 keyboard_code_to_chip8(enum ScanCode kbd_code) {
+	int i;
+	u8 keymap[CHIP8_TOTAL_KEYS] = {
+		/*
+		* 1 2 3 c       1 2 3 4
+		* 4 5 6 d  <=>  q w e r
+		* 7 8 9 e       a s d f
+		* a 0 b f       z x c v
+		*/
+		KEY_x, KEY_1, KEY_2, KEY_3,
+		KEY_q, KEY_w, KEY_e, KEY_a,
+		KEY_s, KEY_d, KEY_z, KEY_c,
+		KEY_4, KEY_r, KEY_f, KEY_v
+	};
+
+	for (i = 0; i < CHIP8_TOTAL_KEYS; i++) {
+		if (keymap[i] == kbd_code) return i;
+	}
+	/* failure case */
+	return -1;
+}
+
+/* BEEPER */
 void square_oscillator(
 	i16* buffer,
 	int buffer_length,
