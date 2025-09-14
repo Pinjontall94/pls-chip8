@@ -220,10 +220,8 @@ void key_down(boule* keyboard, u8 key) {
 ******************************************************************************/
 
 void fetch(Chip8* chip8, union Instruction* instruction) {
-	u8* ram;
 	u16* PC;
 	
-	ram = &chip8->memory;
 	PC = &chip8->registers.PC;
 
 	instruction->bytes.hi_byte = peek(chip8, (*PC) + 0);
@@ -231,6 +229,7 @@ void fetch(Chip8* chip8, union Instruction* instruction) {
 	*PC = *PC + 2;
 }
 void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
+	(void) chip8;
 	int bitmask;
 	u8 opcode;
 	bitmask = 0xF000; /* 1111 0000 0000 0000 */
@@ -248,7 +247,7 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 		break;
 	case 6:
 		break;
-	case 7000:
+	case 7:
 		break;
 	case 8:
 		break;
