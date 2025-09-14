@@ -42,6 +42,11 @@ static void assert_key_in_bounds(u8 key);
 void key_up(boule* keyboard, u8 key);
 void key_down(boule* keyboard, u8 key);
 
+/* Emulation cycle */
+void fetch(struct Chip8* chip8);
+void decode(struct Chip8* chip8);
+void execute(struct Chip8* chip8);
+
 /* external hardware prototypes */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
 void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
@@ -61,6 +66,14 @@ struct Chip8 {
 	boule keyboard[CHIP8_TOTAL_KEYS];
 	struct Registers registers;
 	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
+};
+
+union Instruction {
+	struct {
+		u8 hi_byte;
+		u8 lo_byte;
+	} bytes;
+	u16 word;
 };
 
 enum ScanCode {
@@ -88,6 +101,10 @@ static u8 character_set[] = {
 0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
 0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
+
+/****************************************************************************** 
+* IMPLEMENTATION
+******************************************************************************/
 
 /* Init & Deallocate Machine Instance */
 boule init_chip8(struct Chip8* chip8) {
@@ -196,6 +213,17 @@ void key_down(boule* keyboard, u8 key) {
 	assert_key_in_bounds(key);
 	keyboard[key] = true;
 }
+
+/******************************************************************************
+* FETCH/DECODE/EXECUTE LOOP 
+******************************************************************************/
+
+void fetch(struct Chip8* chip8) {
+	u8 hi_byte, lo_byte;
+	u16 op
+}
+void decode(struct Chip8* chip8);
+void execute(struct Chip8* chip8);
 
 
 /******************************************************************************
