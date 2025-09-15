@@ -1,7 +1,10 @@
 #define SDL_MAIN_USE_CALLBACKS 1
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <float.h>
+#include "chip8.c"
 
+static const int SAMPLE_RATE = 44100;
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_AudioStream *stream = NULL;
@@ -13,18 +16,24 @@ static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astr
     while (additional_amount > 0) {
         float samples[128];  /* this will feed 128 samples each iteration until we have enough. */
         const int total = SDL_min(additional_amount, SDL_arraysize(samples));
-        int i;
+        float dphase, phase;
+        int i, freq;
 
-        /* generate a 440Hz pure tone */
+        freq = 440;
+        phase = 0.00;
+        dphase = (float)freq / SAMPLE_RATE; /* 440 Hz / 44.1 kHz = 0.009977 */
+
+        /* generate a 440Hz tone */
         for (i = 0; i < total; i++) {
-            const int freq = 440;
-            const float phase = current_sine_sample * freq / 8000.0f;
-            samples[i] = SDL_sinf(phase * 2 * SDL_PI_F);
-            current_sine_sample++;
+            samples[i] = SDL_sinf(2 * SDL_PI_F * phase);
+            phase += dphase;
+            if (phase >= 1.0)
+                phase -= 1.0;
+            printf("%f\t", phase);
         }
 
         /* wrapping around to avoid floating-point errors */
-        current_sine_sample %= 8000;
+        current_sine_sample %= SAMPLE_RATE;
 
         /* feed the new data to the stream. It will queue at the end, and trickle out as the hardware needs more data. */
         SDL_PutAudioStreamData(astream, samples, total * sizeof (float));
@@ -49,8 +58,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     }
 
     spec.channels = 1;
-    spec.format = SDL_AUDIO_F32;
-    spec.freq = 8000;
+    spec.format = SDL_AUDIO_F32LE;
+    spec.freq = SAMPLE_RATE;
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, FeedTheAudioStreamMore, NULL);
     if (!stream) {
         SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
@@ -82,5 +91,5 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 void SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
     /* SDL will clean up the window/renderer for us. */
+    printf("\n");
 }
-
