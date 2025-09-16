@@ -277,12 +277,12 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 	}
 }
 
-static u8 grab_nybble(union Instruction* instruction, int position) {
+static u8 grab_nybble(union Instruction instruction, int position) {
 	u8 nybble_position, result;
 	u16 bitmask;
 
 	nybble_position = position * 4; /* bits per nybble */
-	result = instruction->word;
+	result = instruction.word;
 	bitmask = 0x0f << nybble_position;
 	result &= bitmask;
 	return (u8)(result >> nybble_position);
