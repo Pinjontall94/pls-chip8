@@ -102,7 +102,7 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction);
 
 /* external hardware prototypes */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
-void square_oscillator(i16* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
+void square_oscillator(float* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
 
 
 /****************************************************************************** 
