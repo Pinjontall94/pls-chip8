@@ -234,16 +234,28 @@ void fetch(Chip8* chip8, union Instruction* instruction) {
 	instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
 	*PC = *PC + 2;
 }
-void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
+void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 	(void) chip8;
-	int bitmask;
+	int bitmask, i, j;
 	u8 opcode;
 	bitmask = 0xF000; /* 1111 0000 0000 0000 */
-	opcode = (instruction->word & bitmask) >> 3; /* Pull the first nybble off; ---- ---- ---> 1111 */
+	opcode = (instruction.word & bitmask) >> 3; /* Pull the first nybble off; ---- ---- ---> 1111 */
 	switch (opcode) {
 	case 0:
-		break;
+		switch (instruction.word) {
+		case 0x00E0: /* (clear screen) */
+			for (j = 0; j < SCREEN_HEIGHT; j++) {
+				for (i = 0; i < SCREEN_WIDTH; i++) {
+					chip8->screen[j][i] = false;
+				}
+			}
+			break;
+		default:
+			goto invalid;
+			break;
+		}
 	case 1:
+		/* 1NNN (jump to NNN) */
 		break;
 	case 2:
 		break;
@@ -254,26 +266,31 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 	case 5:
 		break;
 	case 6:
+		/* 6XNN (set VX = NN) */
 		break;
 	case 7:
+		/* 7XNN (VX += NN) */
 		break;
 	case 8:
 		break;
 	case 9:
 		break;
-	case 0xa:
+	case 0xA:
+		/* ANNN (set I = NNN) */
 		break;
-	case 0xb:
+	case 0xB:
 		break;
-	case 0xc:
+	case 0xC:
 		break;
-	case 0xd:
+	case 0xD:
+		/* DXYN (display) */
 		break;
-	case 0xe:
+	case 0xE:
 		break;
-	case 0xf:
+	case 0xF:
 		break;
 		default:
+invalid:
 			fprintf(stderr, "invalid opcode! %i\n", opcode);
 			exit(EXIT_FAILURE);
 			break;
