@@ -18,6 +18,11 @@
 #define CHIP8_FRAMES_PER_SECOND 60
 #define CHIP8_INSTRUCTIONS_PER_FRAME 11
 
+/* MACROS */
+#define second_nybble(ins) ( (ins) >> 2 )
+#define third_nybble(ins) ( (ins) >> 1 )
+#define address_bits(ins) ( (ins) & 0xF000 )
+
 /* My husband is a baker */
 #define boule bool
 
@@ -99,6 +104,7 @@ void key_down(boule* keyboard, u8 key);
 /* Emulation cycle */
 void fetch(Chip8* chip8, union Instruction* instruction);
 void decode_and_execute(Chip8* chip8, union Instruction* instruction);
+static u8 grab_nybble(union Instruction* instruction, int position);
 
 /* external hardware prototypes */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
@@ -274,6 +280,17 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 			exit(EXIT_FAILURE);
 			break;
 	}
+}
+
+static u8 grab_nybble(union Instruction* instruction, int position) {
+	u8 nybble_position, result;
+	u16 bitmask;
+
+	nybble_position = position * 4; /* bits per nybble */
+	result = instruction->word;
+	bitmask = 0x0f << nybble_position;
+	result &= bitmask;
+	return (u8)result >> nybble_position;
 }
 
 
