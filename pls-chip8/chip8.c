@@ -15,6 +15,8 @@
 #define CHIP8_TOTAL_STACK_DEPTH 16
 #define CHIP8_TOTAL_KEYS 16
 #define CHIP8_CHARACTER_SET_LOAD_ADDRESS 0x00
+#define CHIP8_FRAMES_PER_SECOND 60
+#define CHIP8_INSTRUCTIONS_PER_FRAME 11
 
 /* My husband is a baker */
 #define boule bool
@@ -235,6 +237,8 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 	bitmask = 0xF000; /* 1111 0000 0000 0000 */
 	opcode = (instruction->word & bitmask) >> 3; /* Pull the first nybble off; ---- ---- ---> 1111 */
 	switch (opcode) {
+	case 0:
+		break;
 	case 1:
 		break;
 	case 2:
@@ -272,6 +276,7 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 	}
 }
 
+
 /******************************************************************************
 * External Hardware (i.e. not in the chip8 spec)
 * ****************************************************************************/
@@ -300,7 +305,7 @@ i8 keyboard_code_to_chip8(enum ScanCode kbd_code) {
 
 /* BEEPER */
 void square_oscillator(
-	i16* buffer,
+	float* buffer,
 	int buffer_length,
 	int long sample_rate,
 	int pitch,
@@ -310,25 +315,21 @@ void square_oscillator(
 	/* Make sure freq is below nyquist and volume isn't too loud 
 	 * [WARNING: DO NOT USE HEADPHONES] */
 	int i;
-	i16 MAX, value, final_value;
-	float delta, phase;
+	float value, delta, phase;
 	
-	MAX = floor(65535.0 / 2.0);
-	delta = (float)pitch / sample_rate;
+	delta = (float)(pitch / sample_rate);
 	phase = 0.00;
 	value = 0;
-	final_value = 0;
 
 	assert(pitch < (sample_rate / 2) && volume > 0.00 && volume < 0.1);
 	for (i = 0; i < buffer_length; i++)
 	{
-		if (phase < 0.5) value = MAX;
-		else value = -1 * MAX;
+		if (phase < 0.5) value = 1.0;
+		else value = -1.0;
 
-		final_value = (i16)(value * volume);
+		buffer[i] = value * volume;
 		phase += delta; /* heart of the oscillator: inc phase by [delta] amount */
-		if (phase >= 1)
-			phase -= 1;
-		buffer[i] = final_value;
+		if (phase >= 1.0)
+			phase -= 1.0;	
 	}
 }
