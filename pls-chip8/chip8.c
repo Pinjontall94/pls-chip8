@@ -285,7 +285,7 @@ static u8 grab_nybble(union Instruction* instruction, int position) {
 	result = instruction->word;
 	bitmask = 0x0f << nybble_position;
 	result &= bitmask;
-	return (u8)result >> nybble_position;
+	return (u8)(result >> nybble_position);
 }
 
 
