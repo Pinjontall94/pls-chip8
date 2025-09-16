@@ -18,11 +18,6 @@
 #define CHIP8_FRAMES_PER_SECOND 60
 #define CHIP8_INSTRUCTIONS_PER_FRAME 11
 
-/* MACROS */
-#define second_nybble(ins) ( (ins) >> 2 )
-#define third_nybble(ins) ( (ins) >> 1 )
-#define address_bits(ins) ( (ins) & 0xF000 )
-
 /* My husband is a baker */
 #define boule bool
 
