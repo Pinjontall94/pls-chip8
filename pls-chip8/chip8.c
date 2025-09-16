@@ -254,8 +254,8 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 			goto invalid;
 			break;
 		}
-	case 1:
-		/* 1NNN (jump to NNN) */
+	case 1: /* 1NNN (jump to NNN) */
+		chip8->registers.PC = get_address(instruction);
 		break;
 	case 2:
 		break;
