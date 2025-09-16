@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -22,10 +23,10 @@
 #define boule bool
 
 /* aliases */
-#define u8 char unsigned
-#define i8 char signed
-#define u16 short unsigned
-#define i16 short signed
+#define u8 uint8_t
+#define i8 int8_t
+#define u16 uint16_t
+#define i16 int16_t
 
 /* Structs, Enums */
 struct Registers {
@@ -99,7 +100,9 @@ void key_down(boule* keyboard, u8 key);
 /* Emulation cycle */
 void fetch(Chip8* chip8, union Instruction* instruction);
 void decode_and_execute(Chip8* chip8, union Instruction* instruction);
-static u8 grab_nybble(union Instruction* instruction, int position);
+static u8 get_nybble(union Instruction* instruction, int position);
+static u16 get_address(union Instruction instruction);
+
 
 /* external hardware prototypes */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
@@ -277,15 +280,19 @@ void decode_and_execute(Chip8* chip8, union Instruction* instruction) {
 	}
 }
 
-static u8 grab_nybble(union Instruction instruction, int position) {
+static u8 get_nybble(union Instruction instruction, int position) {
 	u8 nybble_position, result;
 	u16 bitmask;
 
 	nybble_position = position * 4; /* bits per nybble */
 	result = instruction.word;
-	bitmask = 0x0f << nybble_position;
+	bitmask = 0x000f << nybble_position;
 	result &= bitmask;
 	return (u8)(result >> nybble_position);
+}
+
+static u16 get_address(union Instruction instruction) {
+	return instruction.word & 0x0fff;
 }
 
 
