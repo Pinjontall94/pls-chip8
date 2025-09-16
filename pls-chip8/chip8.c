@@ -100,7 +100,7 @@ void key_down(boule* keyboard, u8 key);
 /* Emulation cycle */
 void fetch(Chip8* chip8, union Instruction* instruction);
 void decode_and_execute(Chip8* chip8, union Instruction* instruction);
-static u8 get_nybble(union Instruction* instruction, int position);
+static u8 get_nybble(union Instruction instruction, int position);
 static u16 get_address(union Instruction instruction);
 
 
