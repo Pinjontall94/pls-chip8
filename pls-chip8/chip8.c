@@ -99,7 +99,7 @@ void key_down(boule* keyboard, u8 key);
 
 /* Emulation cycle */
 void fetch(Chip8* chip8, union Instruction* instruction);
-void decode_and_execute(Chip8* chip8, union Instruction* instruction);
+void decode_and_execute(Chip8* chip8, union Instruction instruction);
 static u8 get_nybble(union Instruction instruction, int position);
 static u16 get_address(union Instruction instruction);
 
@@ -208,7 +208,7 @@ void set_pixel(boule** screen, int x, int y) {
 
 /* KEYBOARD */
 static void assert_key_in_bounds(u8 key) {
-	assert(key >= 0 && key < CHIP8_TOTAL_KEYS);
+	assert(key < CHIP8_TOTAL_KEYS);
 }
 
 void key_up(boule* keyboard, u8 key) {
@@ -265,11 +265,12 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 		break;
 	case 5:
 		break;
-	case 6:
-		/* 6XNN (set VX = NN) */
+	case 6: /* 6XNN (set VX = NN) */
+        chip8->registers.V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
 		break;
 	case 7:
 		/* 7XNN (VX += NN) */
+        chip8->registers.V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
 		break;
 	case 8:
 		break;
@@ -277,6 +278,7 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 		break;
 	case 0xA:
 		/* ANNN (set I = NNN) */
+        chip8->registers.I = get_address(instruction);
 		break;
 	case 0xB:
 		break;
