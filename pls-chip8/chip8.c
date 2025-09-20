@@ -236,7 +236,8 @@ void fetch(Chip8* chip8, union Instruction instruction) {
 }
 void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 	int bitmask, i, j;
-	u8 opcode;
+	u8 opcode, x, y, n, sprite_data;
+    bool current_pixel;
     struct Registers* registers;
 
 	bitmask = 0xF000; /* 1111 0000 0000 0000 */
@@ -262,42 +263,48 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 	case 1: /* 1NNN (jump to NNN) */
 		registers->PC = get_address(instruction);
 		break;
-	case 2: /* 2NNN (call function at NNN) */
+	case 2: /* 2NNN -- call function at NNN */
         /* push current PC to the stack as a return address */
         push(chip8, registers->PC);
    		registers->PC = get_address(instruction);
         break;
-	case 3: /* 3XNN skip instruction iff VX == NN */
+	case 3: /* 3XNN -- skip instruction iff VX == NN */
         if (registers->V[get_nybble(instruction, 1)] == instruction.bytes.lo_byte) {
             registers->PC++; /* skip the next 16-bit instruction */
         }
 		break;
-	case 4: /* 4XNN skip instruction iff VX != NN */
+	case 4: /* 4XNN -- skip instruction iff VX != NN */
         if (registers->V[get_nybble(instruction, 1)] != instruction.bytes.lo_byte) {
             registers->PC++; /* skip the next 16-bit instruction */
         }
 		break;
-	case 5: /* 5XY0 skip instruction iff VX == VY */
+	case 5: /* 5XY0 -- skip instruction iff VX == VY */
         if (registers->V[get_nybble(instruction, 1)] == registers->V[get_nybble(instruction, 2)]) {
             registers->PC++;
         }
 		break;
-	case 6: /* 6XNN (set VX = NN) */
+	case 6: /* 6XNN -- set VX = NN */
         registers->V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
 		break;
 	case 7:
-		/* 7XNN (VX += NN) */
+		/* 7XNN -- VX += NN */
         registers->V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
 		break;
-	case 8:
+	case 8: /* logical operators */
+        switch (instruction.bytes.lo_byte & 0x0F) {
+            case 0: /* 8XY0 -- Set VX to VY */
+            default:
+                goto exit;
+                break;
+        }
 		break;
-	case 9: /* 9XY0 skip instruction iff VX != VY */
+	case 9: /* 9XY0 -- skip instruction iff VX != VY */
         if (registers->V[get_nybble(instruction, 1)] != registers->V[get_nybble(instruction, 2)]) {
             registers->PC++;
         }
 		break;
 	case 0xA:
-		/* ANNN (set I = NNN) */
+		/* ANNN -- set I = NNN */
         registers->I = get_address(instruction);
 		break;
 	case 0xB:
@@ -305,7 +312,50 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 	case 0xC:
 		break;
 	case 0xD:
-		/* DXYN (display) */
+		/* DXYN -- display sprite I, N pixels tall, at coordinate VX,VY */
+        x = registers->V[get_nybble(instruction, 1)] % 64; /* wrap at screen edge if need be */
+        y = registers->V[get_nybble(instruction, 2)] % 32;
+        n = get_nybble(instruction, 3);
+        registers->V[0xf] = 0; /* set flag register to zero (happy path, no collisions) */
+
+        for (i = 0; i < n; i++) {
+            /* for row of sprite data in memory */
+            sprite_data = chip8->memory[registers->I + i];
+            for (j = 7; j >= 0; j--) {
+                /* for pixel/bit in sprite data 
+                 *
+                 * example: bottom row of '2'
+                 * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON 
+                 *  ^sprite data     ^--- ---| 1 << 7
+                 * left shift the sprite data by j, XOR with the current screen pixel 
+                 *
+                 * NOTE:
+                 * I know there's some way to just, like,
+                 * 
+                 *     current_pixel XOR= current_screen[y+i][x+j]
+                 *
+                 * or whatever and set it that way, but idk, this works for now */
+                current_pixel = (bool)sprite_data & (1 << j);
+
+                /* collision detection! */
+                if (current_pixel && chip8->screen[y][x]) {
+                    registers->V[0xf] = 1; 
+                    current_pixel = false;
+                }
+
+                /* drawing */
+                if (current_pixel && ~chip8->screen[y][x]) {
+                    chip8->screen[y][x] = true;
+                }
+
+                /* bounds checking */
+                if (x >= SCREEN_WIDTH) break;
+                x++; /* note that VX isn't incremented, just the copy we took */
+            }
+            /* more bounds checking */
+            if (y >= SCREEN_HEIGHT) break;
+            y++;
+        }
 		break;
 	case 0xE:
 		break;
