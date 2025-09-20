@@ -98,7 +98,7 @@ void key_up(boule* keyboard, u8 key);
 void key_down(boule* keyboard, u8 key);
 
 /* Emulation cycle */
-void fetch(Chip8* chip8, union Instruction* instruction);
+void fetch(Chip8* chip8, union Instruction instruction);
 void decode_and_execute(Chip8* chip8, union Instruction instruction);
 static u8 get_nybble(union Instruction instruction, int position);
 static u16 get_address(union Instruction instruction);
@@ -225,21 +225,23 @@ void key_down(boule* keyboard, u8 key) {
 * FETCH/DECODE/EXECUTE LOOP 
 ******************************************************************************/
 
-void fetch(Chip8* chip8, union Instruction* instruction) {
+void fetch(Chip8* chip8, union Instruction instruction) {
 	u16* PC;
 	
 	PC = &chip8->registers.PC;
 
-	instruction->bytes.hi_byte = peek(chip8, (*PC) + 0);
-	instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
-	*PC = *PC + 2;
+	instruction.bytes.hi_byte = peek(chip8, (*PC) + 0);
+	instruction.bytes.lo_byte = peek(chip8, (*PC) + 1);
+	(*PC)++;
 }
 void decode_and_execute(Chip8* chip8, union Instruction instruction) {
-	(void) chip8;
 	int bitmask, i, j;
 	u8 opcode;
+    struct Registers* registers;
+
 	bitmask = 0xF000; /* 1111 0000 0000 0000 */
 	opcode = (instruction.word & bitmask) >> 3; /* Pull the first nybble off; ---- ---- ---> 1111 */
+    registers = &chip8->registers;
 	switch (opcode) {
 	case 0:
 		switch (instruction.word) {
@@ -251,40 +253,52 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 			}
 			break;
         case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
-            chip8->registers.PC = pop(chip8);
+            registers->PC = pop(chip8);
             break;
 		default:
 			goto exit;
 			break;
 		}
 	case 1: /* 1NNN (jump to NNN) */
-		chip8->registers.PC = get_address(instruction);
+		registers->PC = get_address(instruction);
 		break;
 	case 2: /* 2NNN (call function at NNN) */
         /* push current PC to the stack as a return address */
-        push(chip8, chip8->registers.PC);
-   		chip8->registers.PC = get_address(instruction);
+        push(chip8, registers->PC);
+   		registers->PC = get_address(instruction);
         break;
-	case 3:
+	case 3: /* 3XNN skip instruction iff VX == NN */
+        if (registers->V[get_nybble(instruction, 1)] == instruction.bytes.lo_byte) {
+            registers->PC++; /* skip the next 16-bit instruction */
+        }
 		break;
-	case 4:
+	case 4: /* 4XNN skip instruction iff VX != NN */
+        if (registers->V[get_nybble(instruction, 1)] != instruction.bytes.lo_byte) {
+            registers->PC++; /* skip the next 16-bit instruction */
+        }
 		break;
-	case 5:
+	case 5: /* 5XY0 skip instruction iff VX == VY */
+        if (registers->V[get_nybble(instruction, 1)] == registers->V[get_nybble(instruction, 2)]) {
+            registers->PC++;
+        }
 		break;
 	case 6: /* 6XNN (set VX = NN) */
-        chip8->registers.V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
+        registers->V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
 		break;
 	case 7:
 		/* 7XNN (VX += NN) */
-        chip8->registers.V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
+        registers->V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
 		break;
 	case 8:
 		break;
-	case 9:
+	case 9: /* 9XY0 skip instruction iff VX != VY */
+        if (registers->V[get_nybble(instruction, 1)] != registers->V[get_nybble(instruction, 2)]) {
+            registers->PC++;
+        }
 		break;
 	case 0xA:
 		/* ANNN (set I = NNN) */
-        chip8->registers.I = get_address(instruction);
+        registers->I = get_address(instruction);
 		break;
 	case 0xB:
 		break;
