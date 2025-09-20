@@ -348,7 +348,7 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
                 }
 
                 /* drawing */
-                if (current_pixel && ~chip8->screen[y][x]) {
+                if (current_pixel && !chip8->screen[y][x]) {
                     chip8->screen[y][x] = true;
                 }
 

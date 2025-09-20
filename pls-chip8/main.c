@@ -19,7 +19,7 @@ static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astr
         float dphase, phase;
         int i, freq;
 
-        freq = 440;
+        freq = 220;
         phase = 0.00;
         dphase = (float)freq / SAMPLE_RATE; /* 440 Hz / 44.1 kHz = 0.009977 */
 
