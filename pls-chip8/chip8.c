@@ -293,6 +293,8 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 	case 8: /* logical operators */
         switch (instruction.bytes.lo_byte & 0x0F) {
             case 0: /* 8XY0 -- Set VX to VY */
+                goto exit;
+                break;
             default:
                 goto exit;
                 break;
@@ -308,8 +310,10 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
         registers->I = get_address(instruction);
 		break;
 	case 0xB:
+        goto exit;
 		break;
 	case 0xC:
+        goto exit;
 		break;
 	case 0xD:
 		/* DXYN -- display sprite I, N pixels tall, at coordinate VX,VY */
@@ -358,8 +362,10 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
         }
 		break;
 	case 0xE:
+        goto exit;
 		break;
 	case 0xF:
+        goto exit;
 		break;
 		default:
 exit:
