@@ -250,15 +250,21 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 				}
 			}
 			break;
+        case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
+            chip8->registers.PC = pop(chip8);
+            break;
 		default:
-			goto invalid;
+			goto exit;
 			break;
 		}
 	case 1: /* 1NNN (jump to NNN) */
 		chip8->registers.PC = get_address(instruction);
 		break;
-	case 2:
-		break;
+	case 2: /* 2NNN (call function at NNN) */
+        /* push current PC to the stack as a return address */
+        push(chip8, chip8->registers.PC);
+   		chip8->registers.PC = get_address(instruction);
+        break;
 	case 3:
 		break;
 	case 4:
@@ -292,8 +298,8 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 	case 0xF:
 		break;
 		default:
-invalid:
-			fprintf(stderr, "invalid opcode! %i\n", opcode);
+exit:
+			fprintf(stderr, "invalid opcode or unspecified failure! %i\n", opcode);
 			exit(EXIT_FAILURE);
 			break;
 	}
