@@ -11,10 +11,16 @@
  * This code is public domain. Feel free to use it for any purpose!
  */
 
+#include <SDL3/SDL_init.h>
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <stdio.h>
+
+static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount);
+
+FILE *fp = NULL;
+
 
 /* We will use this renderer to draw into this window every frame. */
 static SDL_Window *window = NULL;
@@ -22,37 +28,7 @@ static SDL_Renderer *renderer = NULL;
 static SDL_AudioStream *stream = NULL;
 static int current_sine_sample = 0;
 
-/* this function will be called (usually in a background thread) when the audio stream is consuming data. */
-static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
-{
-    /* total_amount is how much data the audio stream is eating right now, additional_amount is how much more it needs
-       than what it currently has queued (which might be zero!). You can supply any amount of data here; it will take what
-       it needs and use the extra later. If you don't give it enough, it will take everything and then feed silence to the
-       hardware for the rest. Ideally, though, we always give it what it needs and no extra, so we aren't buffering more
-       than necessary. */
-    additional_amount /= sizeof (float);  /* convert from bytes to samples */
-    while (additional_amount > 0) {
-        float samples[128];  /* this will feed 128 samples each iteration until we have enough. */
-        const int total = SDL_min(additional_amount, SDL_arraysize(samples));
-        int i;
 
-        /* generate a 440Hz pure tone */
-        for (i = 0; i < total; i++) {
-            const int freq = 440;
-            const float phase = current_sine_sample * freq / 8000.0f;
-            printf("%5.2f\t", phase);
-            samples[i] = SDL_sinf(phase * 2 * SDL_PI_F);
-            current_sine_sample++;
-        }
-
-        /* wrapping around to avoid floating-point errors */
-        current_sine_sample %= 8000;
-
-        /* feed the new data to the stream. It will queue at the end, and trickle out as the hardware needs more data. */
-        SDL_PutAudioStreamData(astream, samples, total * sizeof (float));
-        additional_amount -= total;  /* subtract what we've just fed the stream. */
-    }
-}
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
@@ -61,6 +37,17 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
     SDL_SetAppMetadata("Example Simple Audio Playback Callback", "1.0", "com.example.audio-simple-playback-callback");
 
+    if (argc != 2) {
+	printf("Usage: main [rom.ch8]");
+	return SDL_APP_FAILURE;
+    }
+    
+    fp = fopen(argv[1], "r");
+    if (fp == NULL)
+	return SDL_APP_FAILURE;
+    /* Init Chip8, read file bytes into &chip8.memory[0x200] */
+    fclose(fp);
+    
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -118,3 +105,36 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
     printf("\n");
 }
 
+/* this function will be called (usually in a background thread) when the audio stream is consuming data. */
+static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount)
+{
+    /* total_amount is how much data the audio stream is eating right
+       now, additional_amount is how much more it needs than what it
+       currently has queued (which might be zero!). You can supply any
+       amount of data here; it will take what it needs and use the
+       extra later. If you don't give it enough, it will take
+       everything and then feed silence to the hardware for the
+       rest. Ideally, though, we always give it what it needs and no
+       extra, so we aren't buffering more than necessary. */
+    additional_amount /= sizeof (float);  /* convert from bytes to samples */
+    while (additional_amount > 0) {
+        float samples[128];  /* this will feed 128 samples each iteration until we have enough. */
+        const int total = SDL_min(additional_amount, SDL_arraysize(samples));
+        int i;
+
+        /* generate a 440Hz pure tone */
+        for (i = 0; i < total; i++) {
+            const int freq = 440;
+            const float phase = current_sine_sample * freq / 8000.0f;
+            samples[i] = SDL_sinf(phase * 2 * SDL_PI_F);
+            current_sine_sample++;
+        }
+
+        /* wrapping around to avoid floating-point errors */
+        current_sine_sample %= 8000;
+
+        /* feed the new data to the stream. It will queue at the end, and trickle out as the hardware needs more data. */
+        SDL_PutAudioStreamData(astream, samples, total * sizeof (float));
+        additional_amount -= total;  /* subtract what we've just fed the stream. */
+    }
+}

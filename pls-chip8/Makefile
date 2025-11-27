@@ -3,7 +3,7 @@ CFLAGS := -std=c89 -Wall -Werror -lm -lSDL3
 .PHONY: all run clean
 all: run
 run: main
-	./main
+	./main cartridge-slot/*.ch8
 main: main.c
 
 chip8.o: chip8.c
