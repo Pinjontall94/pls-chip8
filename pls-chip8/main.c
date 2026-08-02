@@ -155,7 +155,7 @@ static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astr
         for (i = 0; i < total; i++) {
             const int freq = 440;
             const float phase = current_sine_sample * freq / 8000.0f;
-            samples[i] = (samples[i] > 0.0f) ? 1.0f:-1.0f;
+            samples[i] = SDL_sinf(phase * 2 * SDL_PI_F);
             current_sine_sample++;
         }
 
