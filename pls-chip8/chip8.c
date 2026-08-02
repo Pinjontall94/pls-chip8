@@ -1,120 +1,12 @@
 #include <stdlib.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
-#include <math.h>
-
-/* CONSTANTS */
-#define WINDOW_MULTIPLIER 10
-#define SCREEN_WIDTH 64
-#define SCREEN_HEIGHT 32
-#define CHIP8_MEMORY_SIZE 0x1000
-#define CHIP8_WINDOW_MULTIPLIER 10
-#define CHIP8_NUM_DATA_REGISTERS 16
-#define CHIP8_TOTAL_STACK_DEPTH 16
-#define CHIP8_TOTAL_KEYS 16
-#define CHIP8_CHARACTER_SET_LOAD_ADDRESS 0x00
-#define CHIP8_FRAMES_PER_SECOND 60
-#define CHIP8_INSTRUCTIONS_PER_FRAME 11
-
-/* My husband is a baker */
-#define boule bool
-
-/* aliases */
-#define u8 uint8_t
-#define i8 int8_t
-#define u16 uint16_t
-#define i16 int16_t
-
-/* Structs, Enums */
-struct Registers {
-	u8 V[CHIP8_NUM_DATA_REGISTERS];
-	u16 I;
-	u8 DL, DS;
-	u8 SP;
-	u16 PC;
-};
-
-typedef struct Chip8 {
-	boule screen[SCREEN_HEIGHT][SCREEN_WIDTH];
-	u8 memory[CHIP8_MEMORY_SIZE];
-	boule keyboard[CHIP8_TOTAL_KEYS];
-	struct Registers registers;
-	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
-} Chip8;
-
-union Instruction {
-	struct {
-		u8 hi_byte;
-		u8 lo_byte;
-	} bytes;
-	u16 word;
-};
-
-enum ScanCode {
-	KEY_1 = 2, KEY_2 = 3, KEY_3 = 4, KEY_4 = 5,
-	KEY_q = 16, KEY_w = 17, KEY_e = 18, KEY_r = 19,
-	KEY_a = 30, KEY_s = 31, KEY_d = 32, KEY_f = 33,
-	KEY_z = 44, KEY_x = 45, KEY_c = 46, KEY_v = 47
-};
-
-static u8 character_set[] = {
-0xF0, 0x90, 0x90, 0x90, 0xF0, /* 0 */
-0x20, 0x60, 0x20, 0x20, 0x70, /* 1 */
-0xF0, 0x10, 0xF0, 0x80, 0xF0, /* 2 */
-0xF0, 0x10, 0xF0, 0x10, 0xF0, /* 3 */
-0x90, 0x90, 0xF0, 0x10, 0x10, /* 4 */
-0xF0, 0x80, 0xF0, 0x10, 0xF0, /* 5 */
-0xF0, 0x80, 0xF0, 0x90, 0xF0, /* 6 */
-0xF0, 0x10, 0x20, 0x40, 0x40, /* 7 */
-0xF0, 0x90, 0xF0, 0x90, 0xF0, /* 8 */
-0xF0, 0x90, 0xF0, 0x10, 0xF0, /* 9 */
-0xF0, 0x90, 0xF0, 0x90, 0x90, /* A */
-0xE0, 0x90, 0xE0, 0x90, 0xE0, /* B */
-0xF0, 0x80, 0x80, 0x80, 0xF0, /* C */
-0xE0, 0x90, 0x90, 0x90, 0xE0, /* D */
-0xF0, 0x80, 0xF0, 0x80, 0xF0, /* E */
-0xF0, 0x80, 0xF0, 0x80, 0x80  /* F */
-};
-
-/****************************************************************************** 
- * Function Prototypes 
- *****************************************************************************/
-boule init_chip8(Chip8* chip8);
-void destroy_chip8(Chip8* chip8);
-static void assert_address_in_bounds(u16 address);
-u8 peek(Chip8* chip8, u16 address);
-boule poke(Chip8* chip8, u16 address, u8 value);
-static void assert_stack_in_bounds(u16 SP);
-boule push(Chip8* chip8, u16 value);
-u16 pop(Chip8* chip8);
-static void assert_pixel_in_bounds(int x, int y);
-boule get_pixel(boule** display, int x, int y);
-void set_pixel(boule** display, int x, int y);
-static void assert_key_in_bounds(u8 key);
-void key_up(boule* keyboard, u8 key);
-void key_down(boule* keyboard, u8 key);
-
-/* Emulation cycle */
-void fetch(Chip8* chip8, union Instruction instruction);
-void decode_and_execute(Chip8* chip8, union Instruction instruction);
-static u8 get_nybble(union Instruction instruction, int position);
-static u16 get_address(union Instruction instruction);
-
-
-/* external hardware prototypes */
-i8 keyboard_code_to_chip8(enum ScanCode kbd_code);
-void square_oscillator(float* buffer, int buffer_length, int long sample_rate, int pitch, float volume);
-
-
-/****************************************************************************** 
-* IMPLEMENTATION
-******************************************************************************/
+#include "chip8.h"
 
 /* Init & Deallocate Machine Instance */
-boule init_chip8(Chip8* chip8) {
+bool init_chip8(Chip8* chip8) {
 	chip8 = malloc(sizeof(Chip8));
 	if (chip8) {
 		memcpy(chip8->memory, character_set, sizeof(character_set));
@@ -140,7 +32,7 @@ u8 peek(Chip8* chip8, u16 address) {
 	return chip8->memory[address];
 }
 
-boule poke(Chip8* chip8, u16 address, u8 value) {
+bool poke(Chip8* chip8, u16 address, u8 value) {
 	assert_address_in_bounds(address);
 	chip8->memory[address] = value;
 	return true;
@@ -166,7 +58,7 @@ static void assert_stack_in_bounds(u16 SP) {
 	assert(SP < CHIP8_TOTAL_STACK_DEPTH);
 }
 
-boule push(Chip8* chip8, u16 value) {
+bool push(Chip8* chip8, u16 value) {
 	/* Check the stack pointer bounds before operation to
 	 * see if it's 0x10 <-> 0xff (invalid). Then, push to
 	 * the current SP, and increment to point to new FREE stack slot
@@ -196,12 +88,12 @@ static void assert_pixel_in_bounds(int x, int y) {
 	assert(x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT);
 }
 
-boule get_pixel(boule** screen, int x, int y) {
+bool get_pixel(bool** screen, int x, int y) {
 	assert_pixel_in_bounds(x, y);
 	return screen[y][x];
 }
 
-void set_pixel(boule** screen, int x, int y) {
+void set_pixel(bool** screen, int x, int y) {
 	assert_pixel_in_bounds(x, y);
 	screen[y][x] = true;
 }
@@ -211,23 +103,23 @@ static void assert_key_in_bounds(u8 key) {
 	assert(key < CHIP8_TOTAL_KEYS);
 }
 
-void key_up(boule* keyboard, u8 key) {
+void key_up(bool* keyboard, u8 key) {
 	assert_key_in_bounds(key);
 	keyboard[key] = false;
 }
 
-void key_down(boule* keyboard, u8 key) {
+void key_down(bool* keyboard, u8 key) {
 	assert_key_in_bounds(key);
 	keyboard[key] = true;
 }
 
 /******************************************************************************
-* FETCH/DECODE/EXECUTE LOOP 
+* FETCH/DECODE/EXECUTE LOOP
 ******************************************************************************/
 
 void fetch(Chip8* chip8, union Instruction instruction) {
 	u16* PC;
-	
+
 	PC = &chip8->registers.PC;
 
 	instruction.bytes.hi_byte = peek(chip8, (*PC) + 0);
@@ -326,16 +218,16 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
             /* for row of sprite data in memory */
             sprite_data = chip8->memory[registers->I + i];
             for (j = 7; j >= 0; j--) {
-                /* for pixel/bit in sprite data 
+                /* for pixel/bit in sprite data
                  *
                  * example: bottom row of '2'
-                 * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON 
+                 * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON
                  *  ^sprite data     ^--- ---| 1 << 7
-                 * left shift the sprite data by j, XOR with the current screen pixel 
+                 * left shift the sprite data by j, XOR with the current screen pixel
                  *
                  * NOTE:
                  * I know there's some way to just, like,
-                 * 
+                 *
                  *     current_pixel XOR= current_screen[y+i][x+j]
                  *
                  * or whatever and set it that way, but idk, this works for now */
@@ -343,7 +235,7 @@ void decode_and_execute(Chip8* chip8, union Instruction instruction) {
 
                 /* collision detection! */
                 if (current_pixel && chip8->screen[y][x]) {
-                    registers->V[0xf] = 1; 
+                    registers->V[0xf] = 1;
                     current_pixel = false;
                 }
 
@@ -426,11 +318,11 @@ void square_oscillator(
 	float volume
 )
 {
-	/* Make sure freq is below nyquist and volume isn't too loud 
+	/* Make sure freq is below nyquist and volume isn't too loud
 	 * [WARNING: DO NOT USE HEADPHONES] */
 	int i;
 	float value, delta, phase;
-	
+
 	delta = (float)(pitch / sample_rate);
 	phase = 0.00;
 	value = 0;
@@ -444,6 +336,6 @@ void square_oscillator(
 		buffer[i] = value * volume;
 		phase += delta; /* heart of the oscillator: inc phase by [delta] amount */
 		if (phase >= 1.0)
-			phase -= 1.0;	
+			phase -= 1.0;
 	}
 }

@@ -11,11 +11,18 @@
  * This code is public domain. Feel free to use it for any purpose!
  */
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_init.h>
+#include <SDL3/SDL_log.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <stdio.h>
+#include "chip8.h"
 
 static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astream, int additional_amount, int total_amount);
 
@@ -34,20 +41,42 @@ static int current_sine_sample = 0;
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     SDL_AudioSpec spec;
+    Chip8 *chip8 = NULL;
+    FILE *fp;
+    size_t rom_size;
+    uint8_t buffer[1];
+    size_t i;
 
-    SDL_SetAppMetadata("Example Simple Audio Playback Callback", "1.0", "com.example.audio-simple-playback-callback");
+    SDL_SetAppMetadata("Example Simple Audio Playback Callback", "0.1.0", "com.trannusaran.pls-chip8");
+
 
     if (argc != 2) {
-	printf("Usage: main [rom.ch8]");
+	printf("Usage: main rom-file");
 	return SDL_APP_FAILURE;
     }
-    
-    fp = fopen(argv[1], "r");
+
+
+
+    fp = fopen(argv[1], "rb");
     if (fp == NULL)
 	return SDL_APP_FAILURE;
     /* Init Chip8, read file bytes into &chip8.memory[0x200] */
+    if (!init_chip8(chip8)) {
+            SDL_Log("Couldn't init chip8 instance: %s", SDL_GetError());
+            return SDL_APP_FAILURE;
+    }
+
+    rom_size = fread(buffer, sizeof(uint8_t), 2, fp);
+    if (rom_size != 2) {
+	perror("failed to read data");
+	exit(SDL_APP_FAILURE);
+    }
+    for (i = 0; i < 2; i++) {
+	SDL_Log("buffer[%zu]: %x", i, buffer[i]);
+    }
+    SDL_Log("rom size: %zu", rom_size);
     fclose(fp);
-    
+
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
