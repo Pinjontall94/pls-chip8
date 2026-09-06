@@ -41,10 +41,9 @@ static int current_sine_sample = 0;
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     SDL_AudioSpec spec;
-    Chip8 *chip8 = NULL;
+    Chip8 chip8 = {0};
     FILE *fp;
     size_t rom_size;
-    uint8_t buffer[1];
     size_t i;
 
     SDL_SetAppMetadata("Example Simple Audio Playback Callback", "0.1.0", "com.trannusaran.pls-chip8");
@@ -61,18 +60,18 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     if (fp == NULL)
 	return SDL_APP_FAILURE;
     /* Init Chip8, read file bytes into &chip8.memory[0x200] */
-    if (!init_chip8(chip8)) {
+    if (!init_chip8(&chip8)) {
             SDL_Log("Couldn't init chip8 instance: %s", SDL_GetError());
             return SDL_APP_FAILURE;
     }
 
-    rom_size = fread(buffer, sizeof(uint8_t), 2, fp);
+    rom_size = fread(&chip8.memory[0x200], sizeof(uint8_t), 2, fp);
     if (rom_size != 2) {
 	perror("failed to read data");
 	exit(SDL_APP_FAILURE);
     }
     for (i = 0; i < 2; i++) {
-	SDL_Log("buffer[%zu]: %x", i, buffer[i]);
+	SDL_Log("chip8->memory[0x200 + %zu]: %x", i, chip8.memory[0x200 + i]);
     }
     SDL_Log("rom size: %zu", rom_size);
     fclose(fp);

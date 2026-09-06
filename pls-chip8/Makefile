@@ -6,7 +6,7 @@ run: main
 	./main cartridge-slot/*.ch8
 main: main.c chip8.c
 
-#chip8.o: chip8.c
+chip8.o: chip8.c
 
 clean:
 	-$(RM) main
