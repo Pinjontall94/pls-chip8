@@ -65,7 +65,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
             return SDL_APP_FAILURE;
     }
 
-    /* Read 1FFF - 0x200 + 1 = 3584 bytes */
+    /* Read 1FFF - 0x200 + 1 = 3584 bytes (0xe00) */
     rom_size = fread(&chip8.memory[0x200], sizeof(uint8_t), CHIP8_MAX_ROM_SIZE, fp);
 
     for (i = 0; i < CHIP8_MAX_ROM_SIZE; i++) {
