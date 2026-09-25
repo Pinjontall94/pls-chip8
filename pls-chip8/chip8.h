@@ -42,6 +42,9 @@ typedef struct Chip8 {
 	u16 stack[CHIP8_TOTAL_STACK_DEPTH];
 } Chip8;
 
+/*
+ * NOTE: Ahhh, set instruction.word = memory[registers.PC]
+ */
 union Instruction {
 	struct {
 		u8 hi_byte;

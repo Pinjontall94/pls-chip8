@@ -34,18 +34,16 @@ static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_AudioStream *stream = NULL;
 static int current_sine_sample = 0;
-
+static Chip8 chip8 = {0}; 
 
 
 /* This function runs once at startup. */
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     SDL_AudioSpec spec;
-    Chip8 chip8 = {0};
     FILE *fp;
     size_t rom_size;
     size_t i;
-    union Instruction instruction;
 
     SDL_SetAppMetadata("Example Simple Audio Playback Callback", "0.1.0", "com.trannusaran.pls-chip8");
 
@@ -69,9 +67,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     /* Read 1FFF - 0x200 + 1 = 3584 bytes (0xe00) */
     rom_size = fread(&chip8.memory[0x200], sizeof(uint8_t), CHIP8_MAX_ROM_SIZE, fp);
 
-    for (i = 0; i < CHIP8_MAX_ROM_SIZE; i++) {
-	SDL_Log("chip8->memory[0x200 + %zu]: %x", i, chip8.memory[0x200 + i]);
-    }
     SDL_Log("rom size: %zu", rom_size);
     fclose(fp);
 
@@ -118,7 +113,18 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 {
     union Instruction instruction;
 
-    /* Fetch-Decode-Execute Cycle */
+    /* NOTE: appears to be working, but starts executing at 0x000 instead
+     * of 0x200. Offset PC by 0x200 and try again!
+     */
+    /***********************************************************
+     * Fetch-Decode-Execute Cycle 
+     * 1. Fetch current instruction by indexing chip8.memory[PC] 
+     **********************************************************/
+    fetch(&chip8, instruction);
+
+    /***********************************************************
+     * 2. Decode-Execute instruction with switch statement 
+     **********************************************************/
 
     /* we're not doing anything with the renderer, so just blank it out. */
     SDL_RenderClear(renderer);
