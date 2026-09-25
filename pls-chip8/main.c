@@ -45,6 +45,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     FILE *fp;
     size_t rom_size;
     size_t i;
+    union Instruction instruction;
 
     SDL_SetAppMetadata("Example Simple Audio Playback Callback", "0.1.0", "com.trannusaran.pls-chip8");
 
@@ -61,8 +62,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 	return SDL_APP_FAILURE;
     /* Init Chip8, read file bytes into &chip8.memory[0x200] */
     if (!init_chip8(&chip8)) {
-            SDL_Log("Couldn't init chip8 instance: %s", SDL_GetError());
-            return SDL_APP_FAILURE;
+	    SDL_Log("Couldn't init chip8 instance: %s", SDL_GetError());
+	    return SDL_APP_FAILURE;
     }
 
     /* Read 1FFF - 0x200 + 1 = 3584 bytes (0xe00) */
@@ -75,14 +76,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     fclose(fp);
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-        SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
+	SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
+	return SDL_APP_FAILURE;
     }
 
     /* we don't _need_ a window for audio-only things but it's good policy to have one. */
     if (!SDL_CreateWindowAndRenderer("examples/audio/simple-playback-callback", 640, 480, 0, &window, &renderer)) {
-        SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
+	SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
+	return SDL_APP_FAILURE;
     }
 
     /* We're just playing a single thing here, so we'll use the simplified option.
@@ -93,8 +94,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     spec.freq = 8000;
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, FeedTheAudioStreamMore, NULL);
     if (!stream) {
-        SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
+	SDL_Log("Couldn't create audio stream: %s", SDL_GetError());
+	return SDL_APP_FAILURE;
     }
 
     /* SDL_OpenAudioDeviceStream starts the device paused. You have to tell it to start! */
@@ -107,7 +108,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
     if (event->type == SDL_EVENT_QUIT) {
-        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
+	return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
     }
     return SDL_APP_CONTINUE;  /* carry on with the program! */
 }
@@ -115,6 +116,10 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+    union Instruction instruction;
+
+    /* Fetch-Decode-Execute Cycle */
+
     /* we're not doing anything with the renderer, so just blank it out. */
     SDL_RenderClear(renderer);
     SDL_RenderPresent(renderer);
@@ -144,23 +149,23 @@ static void SDLCALL FeedTheAudioStreamMore(void *userdata, SDL_AudioStream *astr
        extra, so we aren't buffering more than necessary. */
     additional_amount /= sizeof (float);  /* convert from bytes to samples */
     while (additional_amount > 0) {
-        float samples[128];  /* this will feed 128 samples each iteration until we have enough. */
-        const int total = SDL_min(additional_amount, SDL_arraysize(samples));
-        int i;
+	float samples[128];  /* this will feed 128 samples each iteration until we have enough. */
+	const int total = SDL_min(additional_amount, SDL_arraysize(samples));
+	int i;
 
-        /* generate a 440Hz pure tone */
-        for (i = 0; i < total; i++) {
-            const int freq = 440;
-            const float phase = current_sine_sample * freq / 8000.0f;
-            samples[i] = SDL_sinf(phase * 2 * SDL_PI_F);
-            current_sine_sample++;
-        }
+	/* generate a 440Hz pure tone */
+	for (i = 0; i < total; i++) {
+	    const int freq = 440;
+	    const float phase = current_sine_sample * freq / 8000.0f;
+	    samples[i] = SDL_sinf(phase * 2 * SDL_PI_F);
+	    current_sine_sample++;
+	}
 
-        /* wrapping around to avoid floating-point errors */
-        current_sine_sample %= 8000;
+	/* wrapping around to avoid floating-point errors */
+	current_sine_sample %= 8000;
 
-        /* feed the new data to the stream. It will queue at the end, and trickle out as the hardware needs more data. */
-        SDL_PutAudioStreamData(astream, samples, total * sizeof (float));
-        additional_amount -= total;  /* subtract what we've just fed the stream. */
+	/* feed the new data to the stream. It will queue at the end, and trickle out as the hardware needs more data. */
+	SDL_PutAudioStreamData(astream, samples, total * sizeof (float));
+	additional_amount -= total;  /* subtract what we've just fed the stream. */
     }
 }
