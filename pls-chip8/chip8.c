@@ -1,9 +1,9 @@
-#include "chip8.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "chip8.h"
 
 /* Init & Deallocate Machine Instance */
 bool init_chip8(Chip8 *chip8) {
