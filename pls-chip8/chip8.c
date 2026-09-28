@@ -1,341 +1,335 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
 #include "chip8.h"
+#include <assert.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Init & Deallocate Machine Instance */
-bool init_chip8(Chip8* chip8) {
-	chip8 = malloc(sizeof(Chip8));
-	if (chip8) {
-		memcpy(chip8->memory, character_set, sizeof(character_set));
-		return true;
-	}
-	else {
-		return false;
-	}
+bool init_chip8(Chip8 *chip8) {
+  chip8 = malloc(sizeof(Chip8));
+  if (chip8) {
+    memcpy(chip8->memory, character_set, sizeof(character_set));
+    chip8->registers.PC = 0x200;
+    return true;
+  } else {
+    return false;
+  }
 }
 
-
-void destroy_chip8(Chip8* chip8) {
-	free(chip8);
-}
+void destroy_chip8(Chip8 *chip8) { free(chip8); }
 
 /* MEMORY */
 static void assert_address_in_bounds(u16 address) {
-	assert(address <= CHIP8_MEMORY_SIZE);
+  assert(address <= CHIP8_MEMORY_SIZE);
 }
 
-u8 peek(Chip8* chip8, u16 address) {
-	assert_address_in_bounds(address);
-	return chip8->memory[address];
+u8 peek(Chip8 *chip8, u16 address) {
+  assert_address_in_bounds(address);
+  return chip8->memory[address];
 }
 
-bool poke(Chip8* chip8, u16 address, u8 value) {
-	assert_address_in_bounds(address);
-	chip8->memory[address] = value;
-	return true;
+bool poke(Chip8 *chip8, u16 address, u8 value) {
+  assert_address_in_bounds(address);
+  chip8->memory[address] = value;
+  return true;
 }
 
 /* STACK
-* Fundamentally, the confusing thing about these stack operations w/r/t bounds-
-* checking is that the SP doesn't point to capacity, nor the last pushed value,
-* but rather it points to the NEXT FREE INDEX in the stack. ergo:
-*
-*   SP == 0:
-*     push OKAY (push then SP++)
-*     pop  NO
-*
-*   SP == 0x0f:
-*     push NO
-*     pop  OKAY (SP-- then pop)
-*/
+ * Fundamentally, the confusing thing about these stack operations w/r/t bounds-
+ * checking is that the SP doesn't point to capacity, nor the last pushed value,
+ * but rather it points to the NEXT FREE INDEX in the stack. ergo:
+ *
+ *   SP == 0:
+ *     push OKAY (push then SP++)
+ *     pop  NO
+ *
+ *   SP == 0x0f:
+ *     push NO
+ *     pop  OKAY (SP-- then pop)
+ */
 
 static void assert_stack_in_bounds(u16 SP) {
-	/* unsigned, so no need to check for negatives */
-	/* just need to make sure no greater than 0xf or 15 */
-	assert(SP < CHIP8_TOTAL_STACK_DEPTH);
+  /* unsigned, so no need to check for negatives */
+  /* just need to make sure no greater than 0xf or 15 */
+  assert(SP < CHIP8_TOTAL_STACK_DEPTH);
 }
 
-bool push(Chip8* chip8, u16 value) {
-	/* Check the stack pointer bounds before operation to
-	 * see if it's 0x10 <-> 0xff (invalid). Then, push to
-	 * the current SP, and increment to point to new FREE stack slot
-	 */
-	assert_stack_in_bounds(chip8->registers.SP);
-	chip8->stack[chip8->registers.SP] = value;
-	chip8->registers.SP++;
-	return true;
+bool push(Chip8 *chip8, u16 value) {
+  /* Check the stack pointer bounds before operation to
+   * see if it's 0x10 <-> 0xff (invalid). Then, push to
+   * the current SP, and increment to point to new FREE stack slot
+   */
+  assert_stack_in_bounds(chip8->registers.SP);
+  chip8->stack[chip8->registers.SP] = value;
+  chip8->registers.SP++;
+  return true;
 }
 
-u16 pop(Chip8* chip8) {
-	u8 value = 0;
-	/* Decrement SP before pulling value,
-	 * bc it's the index of the next FREE stack slot, NOT the amount stored
-	 *
-	 *     i.e. SP-- on SP == 1 is fine
-	 *          SP-- on SP == 0 is NOT
-	 */
-	chip8->registers.SP--;
-	assert_stack_in_bounds(chip8->registers.SP);
-	value = chip8->stack[chip8->registers.SP];
-	return value;
+u16 pop(Chip8 *chip8) {
+  u8 value = 0;
+  /* Decrement SP before pulling value,
+   * bc it's the index of the next FREE stack slot, NOT the amount stored
+   *
+   *     i.e. SP-- on SP == 1 is fine
+   *          SP-- on SP == 0 is NOT
+   */
+  chip8->registers.SP--;
+  assert_stack_in_bounds(chip8->registers.SP);
+  value = chip8->stack[chip8->registers.SP];
+  return value;
 }
 
 /* DISPLAY */
 static void assert_pixel_in_bounds(int x, int y) {
-	assert(x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT);
+  assert(x >= 0 && x < SCREEN_WIDTH && y >= 0 && SCREEN_HEIGHT);
 }
 
-bool get_pixel(bool** screen, int x, int y) {
-	assert_pixel_in_bounds(x, y);
-	return screen[y][x];
+bool get_pixel(bool **screen, int x, int y) {
+  assert_pixel_in_bounds(x, y);
+  return screen[y][x];
 }
 
-void set_pixel(bool** screen, int x, int y) {
-	assert_pixel_in_bounds(x, y);
-	screen[y][x] = true;
+void set_pixel(bool **screen, int x, int y) {
+  assert_pixel_in_bounds(x, y);
+  screen[y][x] = true;
 }
 
 /* KEYBOARD */
-static void assert_key_in_bounds(u8 key) {
-	assert(key < CHIP8_TOTAL_KEYS);
+static void assert_key_in_bounds(u8 key) { assert(key < CHIP8_TOTAL_KEYS); }
+
+void key_up(bool *keyboard, u8 key) {
+  assert_key_in_bounds(key);
+  keyboard[key] = false;
 }
 
-void key_up(bool* keyboard, u8 key) {
-	assert_key_in_bounds(key);
-	keyboard[key] = false;
-}
-
-void key_down(bool* keyboard, u8 key) {
-	assert_key_in_bounds(key);
-	keyboard[key] = true;
+void key_down(bool *keyboard, u8 key) {
+  assert_key_in_bounds(key);
+  keyboard[key] = true;
 }
 
 /******************************************************************************
-* FETCH/DECODE/EXECUTE LOOP
-******************************************************************************/
+ * FETCH/DECODE/EXECUTE LOOP
+ ******************************************************************************/
 
-void fetch(Chip8* chip8, union Instruction instruction) {
-	u16* PC;
+void fetch(Chip8 *chip8, union Instruction instruction) {
+  u16 *PC;
 
-	PC = &chip8->registers.PC;
+  PC = &chip8->registers.PC;
 
-	instruction.bytes.hi_byte = peek(chip8, (*PC) + 0);
-	instruction.bytes.lo_byte = peek(chip8, (*PC) + 1);
-	(*PC)++;
+  instruction.bytes.hi_byte = peek(chip8, (*PC) + 0);
+  instruction.bytes.lo_byte = peek(chip8, (*PC) + 1);
+  (*PC)++;
 }
-void decode_and_execute(Chip8* chip8, union Instruction instruction) {
-	int bitmask, i, j;
-	u8 opcode, x, y, n, sprite_data;
-    bool current_pixel;
-    struct Registers* registers;
+void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
+  int bitmask, i, j;
+  u8 opcode, x, y, n, sprite_data;
+  bool current_pixel;
+  struct Registers *registers;
 
-	bitmask = 0xF000; /* 1111 0000 0000 0000 */
-	opcode = (instruction.word & bitmask) >> 3; /* Pull the first nybble off; ---- ---- ---> 1111 */
-    registers = &chip8->registers;
-	switch (opcode) {
-	case 0:
-		switch (instruction.word) {
-		case 0x00E0: /* (clear screen) */
-			for (j = 0; j < SCREEN_HEIGHT; j++) {
-				for (i = 0; i < SCREEN_WIDTH; i++) {
-					chip8->screen[j][i] = false;
-				}
-			}
-			break;
-        case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
-            registers->PC = pop(chip8);
-            break;
-		default:
-			goto exit;
-			break;
-		}
-	case 1: /* 1NNN (jump to NNN) */
-		registers->PC = get_address(instruction);
-		break;
-	case 2: /* 2NNN -- call function at NNN */
-        /* push current PC to the stack as a return address */
-        push(chip8, registers->PC);
-   		registers->PC = get_address(instruction);
-        break;
-	case 3: /* 3XNN -- skip instruction iff VX == NN */
-        if (registers->V[get_nybble(instruction, 1)] == instruction.bytes.lo_byte) {
-            registers->PC++; /* skip the next 16-bit instruction */
-        }
-		break;
-	case 4: /* 4XNN -- skip instruction iff VX != NN */
-        if (registers->V[get_nybble(instruction, 1)] != instruction.bytes.lo_byte) {
-            registers->PC++; /* skip the next 16-bit instruction */
-        }
-		break;
-	case 5: /* 5XY0 -- skip instruction iff VX == VY */
-        if (registers->V[get_nybble(instruction, 1)] == registers->V[get_nybble(instruction, 2)]) {
-            registers->PC++;
-        }
-		break;
-	case 6: /* 6XNN -- set VX = NN */
-        registers->V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
-		break;
-	case 7:
-		/* 7XNN -- VX += NN */
-        registers->V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
-		break;
-	case 8: /* logical operators */
-        switch (instruction.bytes.lo_byte & 0x0F) {
-            case 0: /* 8XY0 -- Set VX to VY */
-                goto exit;
-                break;
-            default:
-                goto exit;
-                break;
-        }
-		break;
-	case 9: /* 9XY0 -- skip instruction iff VX != VY */
-        if (registers->V[get_nybble(instruction, 1)] != registers->V[get_nybble(instruction, 2)]) {
-            registers->PC++;
-        }
-		break;
-	case 0xA:
-		/* ANNN -- set I = NNN */
-        registers->I = get_address(instruction);
-		break;
-	case 0xB:
-        goto exit;
-		break;
-	case 0xC:
-        goto exit;
-		break;
-	case 0xD:
-		/* DXYN -- display sprite I, N pixels tall, at coordinate VX,VY */
-        x = registers->V[get_nybble(instruction, 1)] % 64; /* wrap at screen edge if need be */
-        y = registers->V[get_nybble(instruction, 2)] % 32;
-        n = get_nybble(instruction, 3);
-        registers->V[0xf] = 0; /* set flag register to zero (happy path, no collisions) */
-
-        for (i = 0; i < n; i++) {
-            /* for row of sprite data in memory */
-            sprite_data = chip8->memory[registers->I + i];
-            for (j = 7; j >= 0; j--) {
-                /* for pixel/bit in sprite data
-                 *
-                 * example: bottom row of '2'
-                 * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON
-                 *  ^sprite data     ^--- ---| 1 << 7
-                 * left shift the sprite data by j, XOR with the current screen pixel
-                 *
-                 * NOTE:
-                 * I know there's some way to just, like,
-                 *
-                 *     current_pixel XOR= current_screen[y+i][x+j]
-                 *
-                 * or whatever and set it that way, but idk, this works for now */
-                current_pixel = (bool)sprite_data & (1 << j);
-
-                /* collision detection! */
-                if (current_pixel && chip8->screen[y][x]) {
-                    registers->V[0xf] = 1;
-                    current_pixel = false;
-                }
-
-                /* drawing */
-                if (current_pixel && !chip8->screen[y][x]) {
-                    chip8->screen[y][x] = true;
-                }
-
-                /* bounds checking */
-                if (x >= SCREEN_WIDTH) break;
-                x++; /* note that VX isn't incremented, just the copy we took */
-            }
-            /* more bounds checking */
-            if (y >= SCREEN_HEIGHT) break;
-            y++;
-        }
-		break;
-	case 0xE:
-        goto exit;
-		break;
-	case 0xF:
-        goto exit;
-		break;
-		default:
-exit:
-			fprintf(stderr, "invalid opcode or unspecified failure! %i\n", opcode);
-			exit(EXIT_FAILURE);
-			break;
+  bitmask = 0xF000; /* 1111 0000 0000 0000 */
+  opcode = (instruction.word & bitmask) >>
+	   3; /* Pull the first nybble off; ---- ---- ---> 1111 */
+  registers = &chip8->registers;
+  switch (opcode) {
+  case 0:
+    switch (instruction.word) {
+    case 0x00E0: /* (clear screen) */
+      for (j = 0; j < SCREEN_HEIGHT; j++) {
+	for (i = 0; i < SCREEN_WIDTH; i++) {
+	  chip8->screen[j][i] = false;
 	}
+      }
+      break;
+    case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
+      registers->PC = pop(chip8);
+      break;
+    default:
+      goto exit;
+      break;
+    }
+  case 1: /* 1NNN (jump to NNN) */
+    registers->PC = get_address(instruction);
+    break;
+  case 2: /* 2NNN -- call function at NNN */
+    /* push current PC to the stack as a return address */
+    push(chip8, registers->PC);
+    registers->PC = get_address(instruction);
+    break;
+  case 3: /* 3XNN -- skip instruction iff VX == NN */
+    if (registers->V[get_nybble(instruction, 1)] == instruction.bytes.lo_byte) {
+      registers->PC++; /* skip the next 16-bit instruction */
+    }
+    break;
+  case 4: /* 4XNN -- skip instruction iff VX != NN */
+    if (registers->V[get_nybble(instruction, 1)] != instruction.bytes.lo_byte) {
+      registers->PC++; /* skip the next 16-bit instruction */
+    }
+    break;
+  case 5: /* 5XY0 -- skip instruction iff VX == VY */
+    if (registers->V[get_nybble(instruction, 1)] ==
+	registers->V[get_nybble(instruction, 2)]) {
+      registers->PC++;
+    }
+    break;
+  case 6: /* 6XNN -- set VX = NN */
+    registers->V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
+    break;
+  case 7:
+    /* 7XNN -- VX += NN */
+    registers->V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
+    break;
+  case 8: /* logical operators */
+    switch (instruction.bytes.lo_byte & 0x0F) {
+    case 0: /* 8XY0 -- Set VX to VY */
+      goto exit;
+      break;
+    default:
+      goto exit;
+      break;
+    }
+    break;
+  case 9: /* 9XY0 -- skip instruction iff VX != VY */
+    if (registers->V[get_nybble(instruction, 1)] !=
+	registers->V[get_nybble(instruction, 2)]) {
+      registers->PC++;
+    }
+    break;
+  case 0xA:
+    /* ANNN -- set I = NNN */
+    registers->I = get_address(instruction);
+    break;
+  case 0xB:
+    goto exit;
+    break;
+  case 0xC:
+    goto exit;
+    break;
+  case 0xD:
+    /* DXYN -- display sprite I, N pixels tall, at coordinate VX,VY */
+    x = registers->V[get_nybble(instruction, 1)] %
+	64; /* wrap at screen edge if need be */
+    y = registers->V[get_nybble(instruction, 2)] % 32;
+    n = get_nybble(instruction, 3);
+    registers->V[0xf] =
+	0; /* set flag register to zero (happy path, no collisions) */
+
+    for (i = 0; i < n; i++) {
+      /* for row of sprite data in memory */
+      sprite_data = chip8->memory[registers->I + i];
+      for (j = 7; j >= 0; j--) {
+	/* for pixel/bit in sprite data
+	 *
+	 * example: bottom row of '2'
+	 * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON
+	 *  ^sprite data     ^--- ---| 1 << 7
+	 * left shift the sprite data by j, XOR with the current screen pixel
+	 *
+	 * NOTE:
+	 * I know there's some way to just, like,
+	 *
+	 *     current_pixel XOR= current_screen[y+i][x+j]
+	 *
+	 * or whatever and set it that way, but idk, this works for now */
+	current_pixel = (bool)sprite_data & (1 << j);
+
+	/* collision detection! */
+	if (current_pixel && chip8->screen[y][x]) {
+	  registers->V[0xf] = 1;
+	  current_pixel = false;
+	}
+
+	/* drawing */
+	if (current_pixel && !chip8->screen[y][x]) {
+	  chip8->screen[y][x] = true;
+	}
+
+	/* bounds checking */
+	if (x >= SCREEN_WIDTH)
+	  break;
+	x++; /* note that VX isn't incremented, just the copy we took */
+      }
+      /* more bounds checking */
+      if (y >= SCREEN_HEIGHT)
+	break;
+      y++;
+    }
+    break;
+  case 0xE:
+    goto exit;
+    break;
+  case 0xF:
+    goto exit;
+    break;
+  default:
+  exit:
+    fprintf(stderr, "invalid opcode or unspecified failure! %i\n", opcode);
+    exit(EXIT_FAILURE);
+    break;
+  }
 }
 
 static u8 get_nybble(union Instruction instruction, int position) {
-	u8 nybble_position, result;
-	u16 bitmask;
+  u8 nybble_position, result;
+  u16 bitmask;
 
-	nybble_position = position * 4; /* bits per nybble */
-	result = instruction.word;
-	bitmask = 0x000f << nybble_position;
-	result &= bitmask;
-	return (u8)(result >> nybble_position);
+  nybble_position = position * 4; /* bits per nybble */
+  result = instruction.word;
+  bitmask = 0x000f << nybble_position;
+  result &= bitmask;
+  return (u8)(result >> nybble_position);
 }
 
 static u16 get_address(union Instruction instruction) {
-	return instruction.word & 0x0fff;
+  return instruction.word & 0x0fff;
 }
 
-
 /******************************************************************************
-* External Hardware (i.e. not in the chip8 spec)
-* ****************************************************************************/
+ * External Hardware (i.e. not in the chip8 spec)
+ * ****************************************************************************/
 /* KEYBOARD MAPPING */
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code) {
-	int i;
-	u8 keymap[CHIP8_TOTAL_KEYS] = {
-		/*
-		* 1 2 3 c       1 2 3 4
-		* 4 5 6 d  <=>  q w e r
-		* 7 8 9 e       a s d f
-		* a 0 b f       z x c v
-		*/
-		KEY_x, KEY_1, KEY_2, KEY_3,
-		KEY_q, KEY_w, KEY_e, KEY_a,
-		KEY_s, KEY_d, KEY_z, KEY_c,
-		KEY_4, KEY_r, KEY_f, KEY_v
-	};
+  int i;
+  u8 keymap[CHIP8_TOTAL_KEYS] = {/*
+				  * 1 2 3 c       1 2 3 4
+				  * 4 5 6 d  <=>  q w e r
+				  * 7 8 9 e       a s d f
+				  * a 0 b f       z x c v
+				  */
+				 KEY_x, KEY_1, KEY_2, KEY_3, KEY_q, KEY_w,
+				 KEY_e, KEY_a, KEY_s, KEY_d, KEY_z, KEY_c,
+				 KEY_4, KEY_r, KEY_f, KEY_v};
 
-	for (i = 0; i < CHIP8_TOTAL_KEYS; i++) {
-		if (keymap[i] == kbd_code) return i;
-	}
-	/* failure case */
-	return -1;
+  for (i = 0; i < CHIP8_TOTAL_KEYS; i++) {
+    if (keymap[i] == kbd_code)
+      return i;
+  }
+  /* failure case */
+  return -1;
 }
 
 /* BEEPER */
-void square_oscillator(
-	float* buffer,
-	int buffer_length,
-	int long sample_rate,
-	int pitch,
-	float volume
-)
-{
-	/* Make sure freq is below nyquist and volume isn't too loud
-	 * [WARNING: DO NOT USE HEADPHONES] */
-	int i;
-	float value, delta, phase;
+void square_oscillator(float *buffer, int buffer_length, int long sample_rate,
+		       int pitch, float volume) {
+  /* Make sure freq is below nyquist and volume isn't too loud
+   * [WARNING: DO NOT USE HEADPHONES] */
+  int i;
+  float value, delta, phase;
 
-	delta = (float)(pitch / sample_rate);
-	phase = 0.00;
-	value = 0;
+  delta = (float)(pitch / sample_rate);
+  phase = 0.00;
+  value = 0;
 
-	assert(pitch < (sample_rate / 2) && volume > 0.00 && volume < 0.1);
-	for (i = 0; i < buffer_length; i++)
-	{
-		if (phase < 0.5) value = 1.0;
-		else value = -1.0;
+  assert(pitch < (sample_rate / 2) && volume > 0.00 && volume < 0.1);
+  for (i = 0; i < buffer_length; i++) {
+    if (phase < 0.5)
+      value = 1.0;
+    else
+      value = -1.0;
 
-		buffer[i] = value * volume;
-		phase += delta; /* heart of the oscillator: inc phase by [delta] amount */
-		if (phase >= 1.0)
-			phase -= 1.0;
-	}
+    buffer[i] = value * volume;
+    phase += delta; /* heart of the oscillator: inc phase by [delta] amount */
+    if (phase >= 1.0)
+      phase -= 1.0;
+  }
 }
