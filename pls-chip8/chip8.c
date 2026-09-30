@@ -120,6 +120,8 @@ void fetch(Chip8 *chip8, union Instruction instruction) {
   instruction.bytes.hi_byte = peek(chip8, (*PC) + 0);
   instruction.bytes.lo_byte = peek(chip8, (*PC) + 1);
   (*PC)++;
+
+  decode_and_execute(chip8, instruction);
 }
 void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
   int bitmask, i, j;
