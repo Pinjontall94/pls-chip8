@@ -362,3 +362,4 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /pls-chip8/main
+/pls-chip8/cartridge-slot/IBM Logo.ch8
