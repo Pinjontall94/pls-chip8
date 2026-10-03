@@ -1,9 +1,8 @@
+#include "chip8.h"
 #include <assert.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "chip8.h"
 
 /* Init & Deallocate Machine Instance */
 bool init_chip8(Chip8 *chip8) {
@@ -131,19 +130,21 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
 
   bitmask = 0xF000; /* 1111 0000 0000 0000 */
   opcode = (instruction.word & bitmask) >>
-	   3; /* Pull the first nybble off; ---- ---- ---> 1111 */
+           3; /* Pull the first nybble off; ---- ---- ---> 1111 */
   registers = &chip8->registers;
   switch (opcode) {
   case 0:
     switch (instruction.word) {
     case 0x00E0: /* (clear screen) */
+      printf("Clear ");
       for (j = 0; j < SCREEN_HEIGHT; j++) {
-	for (i = 0; i < SCREEN_WIDTH; i++) {
-	  chip8->screen[j][i] = false;
-	}
+        for (i = 0; i < SCREEN_WIDTH; i++) {
+          chip8->screen[j][i] = false;
+        }
       }
       break;
     case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
+      printf("Sub return ");
       registers->PC = pop(chip8);
       break;
     default:
@@ -151,37 +152,45 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
       break;
     }
   case 1: /* 1NNN (jump to NNN) */
+    printf("Jump ");
     registers->PC = get_address(instruction);
     break;
   case 2: /* 2NNN -- call function at NNN */
     /* push current PC to the stack as a return address */
+    printf("Sub call ");
     push(chip8, registers->PC);
     registers->PC = get_address(instruction);
     break;
   case 3: /* 3XNN -- skip instruction iff VX == NN */
+    printf("Skip iff VX == %x ", instruction.bytes.lo_byte);
     if (registers->V[get_nybble(instruction, 1)] == instruction.bytes.lo_byte) {
       registers->PC++; /* skip the next 16-bit instruction */
     }
     break;
   case 4: /* 4XNN -- skip instruction iff VX != NN */
+    printf("Skip iff VX != %x ", instruction.bytes.lo_byte);
     if (registers->V[get_nybble(instruction, 1)] != instruction.bytes.lo_byte) {
       registers->PC++; /* skip the next 16-bit instruction */
     }
     break;
   case 5: /* 5XY0 -- skip instruction iff VX == VY */
+    printf("Skip iff VX == VY ");
     if (registers->V[get_nybble(instruction, 1)] ==
-	registers->V[get_nybble(instruction, 2)]) {
+        registers->V[get_nybble(instruction, 2)]) {
       registers->PC++;
     }
     break;
   case 6: /* 6XNN -- set VX = NN */
+    printf("Set VX to %x ", instruction.bytes.lo_byte);
     registers->V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
     break;
   case 7:
     /* 7XNN -- VX += NN */
+    printf("VX += %x ", instruction.bytes.lo_byte);
     registers->V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
     break;
   case 8: /* logical operators */
+    printf("Logical Op WIP ");
     switch (instruction.bytes.lo_byte & 0x0F) {
     case 0: /* 8XY0 -- Set VX to VY */
       goto exit;
@@ -192,8 +201,9 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
     }
     break;
   case 9: /* 9XY0 -- skip instruction iff VX != VY */
+    printf("Skip iff VX != VY ");
     if (registers->V[get_nybble(instruction, 1)] !=
-	registers->V[get_nybble(instruction, 2)]) {
+        registers->V[get_nybble(instruction, 2)]) {
       registers->PC++;
     }
     break;
@@ -210,50 +220,50 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
   case 0xD:
     /* DXYN -- display sprite I, N pixels tall, at coordinate VX,VY */
     x = registers->V[get_nybble(instruction, 1)] %
-	64; /* wrap at screen edge if need be */
+        64; /* wrap at screen edge if need be */
     y = registers->V[get_nybble(instruction, 2)] % 32;
     n = get_nybble(instruction, 3);
     registers->V[0xf] =
-	0; /* set flag register to zero (happy path, no collisions) */
+        0; /* set flag register to zero (happy path, no collisions) */
 
     for (i = 0; i < n; i++) {
       /* for row of sprite data in memory */
       sprite_data = chip8->memory[registers->I + i];
       for (j = 7; j >= 0; j--) {
-	/* for pixel/bit in sprite data
-	 *
-	 * example: bottom row of '2'
-	 * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON
-	 *  ^sprite data     ^--- ---| 1 << 7
-	 * left shift the sprite data by j, XOR with the current screen pixel
-	 *
-	 * NOTE:
-	 * I know there's some way to just, like,
-	 *
-	 *     current_pixel XOR= current_screen[y+i][x+j]
-	 *
-	 * or whatever and set it that way, but idk, this works for now */
-	current_pixel = (bool)sprite_data & (1 << j);
+        /* for pixel/bit in sprite data
+         *
+         * example: bottom row of '2'
+         * [0b1111 1111] & 0b1000 0000 = 0b1000 0000 ~ true ~ PIXEL_ON
+         *  ^sprite data     ^--- ---| 1 << 7
+         * left shift the sprite data by j, XOR with the current screen pixel
+         *
+         * NOTE:
+         * I know there's some way to just, like,
+         *
+         *     current_pixel XOR= current_screen[y+i][x+j]
+         *
+         * or whatever and set it that way, but idk, this works for now */
+        current_pixel = (bool)sprite_data & (1 << j);
 
-	/* collision detection! */
-	if (current_pixel && chip8->screen[y][x]) {
-	  registers->V[0xf] = 1;
-	  current_pixel = false;
-	}
+        /* collision detection! */
+        if (current_pixel && chip8->screen[y][x]) {
+          registers->V[0xf] = 1;
+          current_pixel = false;
+        }
 
-	/* drawing */
-	if (current_pixel && !chip8->screen[y][x]) {
-	  chip8->screen[y][x] = true;
-	}
+        /* drawing */
+        if (current_pixel && !chip8->screen[y][x]) {
+          chip8->screen[y][x] = true;
+        }
 
-	/* bounds checking */
-	if (x >= SCREEN_WIDTH)
-	  break;
-	x++; /* note that VX isn't incremented, just the copy we took */
+        /* bounds checking */
+        if (x >= SCREEN_WIDTH)
+          break;
+        x++; /* note that VX isn't incremented, just the copy we took */
       }
       /* more bounds checking */
       if (y >= SCREEN_HEIGHT)
-	break;
+        break;
       y++;
     }
     break;
@@ -265,6 +275,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
     break;
   default:
   exit:
+    printf("\n");
     fprintf(stderr, "invalid opcode or unspecified failure! %i\n", opcode);
     exit(EXIT_FAILURE);
     break;
@@ -293,14 +304,14 @@ static u16 get_address(union Instruction instruction) {
 i8 keyboard_code_to_chip8(enum ScanCode kbd_code) {
   int i;
   u8 keymap[CHIP8_TOTAL_KEYS] = {/*
-				  * 1 2 3 c       1 2 3 4
-				  * 4 5 6 d  <=>  q w e r
-				  * 7 8 9 e       a s d f
-				  * a 0 b f       z x c v
-				  */
-				 KEY_x, KEY_1, KEY_2, KEY_3, KEY_q, KEY_w,
-				 KEY_e, KEY_a, KEY_s, KEY_d, KEY_z, KEY_c,
-				 KEY_4, KEY_r, KEY_f, KEY_v};
+                                  * 1 2 3 c       1 2 3 4
+                                  * 4 5 6 d  <=>  q w e r
+                                  * 7 8 9 e       a s d f
+                                  * a 0 b f       z x c v
+                                  */
+                                 KEY_x, KEY_1, KEY_2, KEY_3, KEY_q, KEY_w,
+                                 KEY_e, KEY_a, KEY_s, KEY_d, KEY_z, KEY_c,
+                                 KEY_4, KEY_r, KEY_f, KEY_v};
 
   for (i = 0; i < CHIP8_TOTAL_KEYS; i++) {
     if (keymap[i] == kbd_code)
@@ -312,7 +323,7 @@ i8 keyboard_code_to_chip8(enum ScanCode kbd_code) {
 
 /* BEEPER */
 void square_oscillator(float *buffer, int buffer_length, int long sample_rate,
-		       int pitch, float volume) {
+                       int pitch, float volume) {
   /* Make sure freq is below nyquist and volume isn't too loud
    * [WARNING: DO NOT USE HEADPHONES] */
   int i;

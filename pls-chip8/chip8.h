@@ -1,5 +1,6 @@
 #ifndef CHIP8_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /* CONSTANTS */
