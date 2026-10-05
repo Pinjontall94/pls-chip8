@@ -32,7 +32,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     size_t rom_size;
     size_t i;
 
-    SDL_SetAppMetadata("Example Simple Audio Playback Callback", "0.1.0", "com.trannusaran.pls-chip8");
+    SDL_SetAppMetadata("Chip8", "0.1.0", "com.trannusaran.pls-chip8");
 
 
     if (argc != 2) {
@@ -110,6 +110,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
      * 1. Fetch current instruction by indexing chip8.memory[PC]
      **********************************************************/
     fetch(&chip8, &instruction);
+    SDL_Log("instruction.word: %x", instruction.word);
 
     /***********************************************************
      * 2. Decode-Execute instruction with switch statement

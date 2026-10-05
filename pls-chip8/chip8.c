@@ -6,8 +6,7 @@
 #include <string.h>
 
 /* Init & Deallocate Machine Instance */
-bool init_chip8(Chip8 *chip8) {
-  chip8 = malloc(sizeof *chip8);
+bool init_chip8(Chip8* chip8) {
   if (chip8) {
     memcpy(chip8->memory, character_set, sizeof(character_set));
     chip8->registers.PC = 0x200;
@@ -118,8 +117,8 @@ void fetch(Chip8 *chip8, union Instruction *instruction) {
 
   PC = &chip8->registers.PC;
 
-  instruction->bytes.hi_byte = peek(chip8, (*PC) + 0);
-  instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
+  instruction->bytes.lo_byte = peek(chip8, (*PC) + 0);
+  instruction->bytes.hi_byte = peek(chip8, (*PC) + 1);
   (*PC)++;
 }
 
@@ -128,7 +127,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
   u8 opcode, x, y, n, sprite_data;
   bool current_pixel;
   struct Registers *registers;
-
+                    /* 1110 0000 0000 0000 */
   bitmask = 0xF000; /* 1111 0000 0000 0000 */
   opcode = (instruction->word & bitmask) >>
            3; /* Pull the first nybble off; ---- ---- ---> 1111 */
