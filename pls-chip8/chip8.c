@@ -1,4 +1,5 @@
 #include "chip8.h"
+#include <SDL3/SDL_log.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,10 +7,11 @@
 
 /* Init & Deallocate Machine Instance */
 bool init_chip8(Chip8 *chip8) {
-  chip8 = malloc(sizeof(Chip8));
+  chip8 = malloc(sizeof *chip8);
   if (chip8) {
     memcpy(chip8->memory, character_set, sizeof(character_set));
     chip8->registers.PC = 0x200;
+    SDL_Log("[init_chip8] chip8->registers.PC: %x", chip8->registers.PC);
     return true;
   } else {
     return false;
@@ -111,32 +113,31 @@ void key_down(bool *keyboard, u8 key) {
  * FETCH/DECODE/EXECUTE LOOP
  ******************************************************************************/
 
-void fetch(Chip8 *chip8, union Instruction instruction) {
+void fetch(Chip8 *chip8, union Instruction *instruction) {
   u16 *PC;
 
   PC = &chip8->registers.PC;
 
-  instruction.bytes.hi_byte = peek(chip8, (*PC) + 0);
-  instruction.bytes.lo_byte = peek(chip8, (*PC) + 1);
+  instruction->bytes.hi_byte = peek(chip8, (*PC) + 0);
+  instruction->bytes.lo_byte = peek(chip8, (*PC) + 1);
   (*PC)++;
-
-  decode_and_execute(chip8, instruction);
 }
-void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
+
+void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
   int bitmask, i, j;
   u8 opcode, x, y, n, sprite_data;
   bool current_pixel;
   struct Registers *registers;
 
   bitmask = 0xF000; /* 1111 0000 0000 0000 */
-  opcode = (instruction.word & bitmask) >>
+  opcode = (instruction->word & bitmask) >>
            3; /* Pull the first nybble off; ---- ---- ---> 1111 */
   registers = &chip8->registers;
   switch (opcode) {
   case 0:
-    switch (instruction.word) {
+    switch (instruction->word) {
     case 0x00E0: /* (clear screen) */
-      printf("Clear ");
+      fprintf(stderr, "Clear ");
       for (j = 0; j < SCREEN_HEIGHT; j++) {
         for (i = 0; i < SCREEN_WIDTH; i++) {
           chip8->screen[j][i] = false;
@@ -144,7 +145,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
       }
       break;
     case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
-      printf("Sub return ");
+      fprintf(stderr, "Sub return ");
       registers->PC = pop(chip8);
       break;
     default:
@@ -152,46 +153,46 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
       break;
     }
   case 1: /* 1NNN (jump to NNN) */
-    printf("Jump ");
+    fprintf(stderr, "Jump ");
     registers->PC = get_address(instruction);
     break;
   case 2: /* 2NNN -- call function at NNN */
     /* push current PC to the stack as a return address */
-    printf("Sub call ");
+    fprintf(stderr, "Sub call ");
     push(chip8, registers->PC);
     registers->PC = get_address(instruction);
     break;
   case 3: /* 3XNN -- skip instruction iff VX == NN */
-    printf("Skip iff VX == %x ", instruction.bytes.lo_byte);
-    if (registers->V[get_nybble(instruction, 1)] == instruction.bytes.lo_byte) {
+    fprintf(stderr, "Skip iff VX == %x ", instruction->bytes.lo_byte);
+    if (registers->V[get_nybble(instruction, 1)] == instruction->bytes.lo_byte) {
       registers->PC++; /* skip the next 16-bit instruction */
     }
     break;
   case 4: /* 4XNN -- skip instruction iff VX != NN */
-    printf("Skip iff VX != %x ", instruction.bytes.lo_byte);
-    if (registers->V[get_nybble(instruction, 1)] != instruction.bytes.lo_byte) {
+    fprintf(stderr, "Skip iff VX != %x ", instruction->bytes.lo_byte);
+    if (registers->V[get_nybble(instruction, 1)] != instruction->bytes.lo_byte) {
       registers->PC++; /* skip the next 16-bit instruction */
     }
     break;
   case 5: /* 5XY0 -- skip instruction iff VX == VY */
-    printf("Skip iff VX == VY ");
+    fprintf(stderr, "Skip iff VX == VY ");
     if (registers->V[get_nybble(instruction, 1)] ==
         registers->V[get_nybble(instruction, 2)]) {
       registers->PC++;
     }
     break;
   case 6: /* 6XNN -- set VX = NN */
-    printf("Set VX to %x ", instruction.bytes.lo_byte);
-    registers->V[get_nybble(instruction, 1)] = instruction.bytes.lo_byte;
+    fprintf(stderr, "Set VX to %x ", instruction->bytes.lo_byte);
+    registers->V[get_nybble(instruction, 1)] = instruction->bytes.lo_byte;
     break;
   case 7:
     /* 7XNN -- VX += NN */
-    printf("VX += %x ", instruction.bytes.lo_byte);
-    registers->V[get_nybble(instruction, 1)] += instruction.bytes.lo_byte;
+    fprintf(stderr, "VX += %x ", instruction->bytes.lo_byte);
+    registers->V[get_nybble(instruction, 1)] += instruction->bytes.lo_byte;
     break;
   case 8: /* logical operators */
-    printf("Logical Op WIP ");
-    switch (instruction.bytes.lo_byte & 0x0F) {
+    fprintf(stderr, "Logical Op WIP ");
+    switch (instruction->bytes.lo_byte & 0x0F) {
     case 0: /* 8XY0 -- Set VX to VY */
       goto exit;
       break;
@@ -201,7 +202,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
     }
     break;
   case 9: /* 9XY0 -- skip instruction iff VX != VY */
-    printf("Skip iff VX != VY ");
+    fprintf(stderr, "Skip iff VX != VY ");
     if (registers->V[get_nybble(instruction, 1)] !=
         registers->V[get_nybble(instruction, 2)]) {
       registers->PC++;
@@ -275,26 +276,26 @@ void decode_and_execute(Chip8 *chip8, union Instruction instruction) {
     break;
   default:
   exit:
-    printf("\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "invalid opcode or unspecified failure! %i\n", opcode);
     exit(EXIT_FAILURE);
     break;
   }
 }
 
-static u8 get_nybble(union Instruction instruction, int position) {
+static u8 get_nybble(union Instruction *instruction, int position) {
   u8 nybble_position, result;
   u16 bitmask;
 
   nybble_position = position * 4; /* bits per nybble */
-  result = instruction.word;
+  result = instruction->word;
   bitmask = 0x000f << nybble_position;
   result &= bitmask;
   return (u8)(result >> nybble_position);
 }
 
-static u16 get_address(union Instruction instruction) {
-  return instruction.word & 0x0fff;
+static u16 get_address(union Instruction *instruction) {
+  return instruction->word & 0x0fff;
 }
 
 /******************************************************************************

@@ -34,7 +34,7 @@ static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_AudioStream *stream = NULL;
 static int current_sine_sample = 0;
-static Chip8 chip8 = {0}; 
+static Chip8 chip8 = {0};
 
 
 /* This function runs once at startup. */
@@ -62,6 +62,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     if (!init_chip8(&chip8)) {
 	    SDL_Log("Couldn't init chip8 instance: %s", SDL_GetError());
 	    return SDL_APP_FAILURE;
+    } else {
+            SDL_Log("[SDL_AppInit] chip8.registers.PC: %x", chip8.registers.PC);
     }
 
     /* Read 1FFF - 0x200 + 1 = 3584 bytes (0xe00) */
@@ -117,14 +119,15 @@ SDL_AppResult SDL_AppIterate(void *appstate)
      * of 0x200. Offset PC by 0x200 and try again!
      */
     /***********************************************************
-     * Fetch-Decode-Execute Cycle 
-     * 1. Fetch current instruction by indexing chip8.memory[PC] 
+     * Fetch-Decode-Execute Cycle
+     * 1. Fetch current instruction by indexing chip8.memory[PC]
      **********************************************************/
-    fetch(&chip8, instruction);
+    fetch(&chip8, &instruction);
 
     /***********************************************************
-     * 2. Decode-Execute instruction with switch statement 
+     * 2. Decode-Execute instruction with switch statement
      **********************************************************/
+     decode_and_execute(&chip8, &instruction);
 
     /* we're not doing anything with the renderer, so just blank it out. */
     SDL_RenderClear(renderer);
