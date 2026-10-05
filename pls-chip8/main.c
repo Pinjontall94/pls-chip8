@@ -1,16 +1,3 @@
-/* simple-playback-callback.c ... */
-
-/*
- * This example code creates a simple audio stream for playing sound, and
- * generates a sine wave sound effect for it to play as time goes on. Unlike
- * the previous example, this uses a callback to generate sound.
- *
- * This might be the path of least resistance if you're moving an SDL2
- * program's audio code to SDL3.
- *
- * This code is public domain. Feel free to use it for any purpose!
- */
-
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_log.h>
