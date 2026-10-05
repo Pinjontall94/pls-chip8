@@ -49,8 +49,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     if (!init_chip8(&chip8)) {
 	    SDL_Log("Couldn't init chip8 instance: %s", SDL_GetError());
 	    return SDL_APP_FAILURE;
-    } else {
-            SDL_Log("[SDL_AppInit] chip8.registers.PC: %x", chip8.registers.PC);
     }
 
     /* Read 1FFF - 0x200 + 1 = 3584 bytes (0xe00) */
@@ -110,7 +108,6 @@ SDL_AppResult SDL_AppIterate(void *appstate)
      * 1. Fetch current instruction by indexing chip8.memory[PC]
      **********************************************************/
     fetch(&chip8, &instruction);
-    SDL_Log("instruction.word: %x", instruction.word);
 
     /***********************************************************
      * 2. Decode-Execute instruction with switch statement

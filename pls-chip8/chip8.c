@@ -10,7 +10,6 @@ bool init_chip8(Chip8* chip8) {
   if (chip8) {
     memcpy(chip8->memory, character_set, sizeof(character_set));
     chip8->registers.PC = 0x200;
-    SDL_Log("[init_chip8] chip8->registers.PC: %x", chip8->registers.PC);
     return true;
   } else {
     return false;
@@ -116,10 +115,14 @@ void fetch(Chip8 *chip8, union Instruction *instruction) {
   u16 *PC;
 
   PC = &chip8->registers.PC;
+  SDL_Log("PC: %#.4x", *PC);
 
   instruction->bytes.lo_byte = peek(chip8, (*PC) + 0);
   instruction->bytes.hi_byte = peek(chip8, (*PC) + 1);
+  SDL_Log("PC before inc: %#.4x -> RAM: %#.2x", *PC, chip8->memory[*PC]);
   (*PC)++;
+  (*PC)++;
+  SDL_Log("PC after inc: %#.4x -> RAM: %#.2x", *PC, chip8->memory[*PC]);
 }
 
 void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
@@ -132,11 +135,14 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
   opcode = (instruction->word & bitmask) >>
            3; /* Pull the first nybble off; ---- ---- ---> 1111 */
   registers = &chip8->registers;
+
+  SDL_Log("instruction: %#.4x", instruction->word);
+
   switch (opcode) {
   case 0:
     switch (instruction->word) {
     case 0x00E0: /* (clear screen) */
-      fprintf(stderr, "Clear ");
+      SDL_Log("Clear");
       for (j = 0; j < SCREEN_HEIGHT; j++) {
         for (i = 0; i < SCREEN_WIDTH; i++) {
           chip8->screen[j][i] = false;
@@ -144,7 +150,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
       }
       break;
     case 0x00EE: /* return from subroutine (counterpart to 2NNN) */
-      fprintf(stderr, "Sub return ");
+      SDL_Log("Sub return\n");
       registers->PC = pop(chip8);
       break;
     default:
@@ -152,45 +158,45 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
       break;
     }
   case 1: /* 1NNN (jump to NNN) */
-    fprintf(stderr, "Jump ");
+    SDL_Log("Jump to: %#.4x", get_address(instruction));
     registers->PC = get_address(instruction);
     break;
   case 2: /* 2NNN -- call function at NNN */
     /* push current PC to the stack as a return address */
-    fprintf(stderr, "Sub call ");
+    SDL_Log("Sub call");
     push(chip8, registers->PC);
     registers->PC = get_address(instruction);
     break;
   case 3: /* 3XNN -- skip instruction iff VX == NN */
-    fprintf(stderr, "Skip iff VX == %x ", instruction->bytes.lo_byte);
+    SDL_Log("Skip iff VX == %#x", instruction->bytes.lo_byte);
     if (registers->V[get_nybble(instruction, 1)] == instruction->bytes.lo_byte) {
       registers->PC++; /* skip the next 16-bit instruction */
     }
     break;
   case 4: /* 4XNN -- skip instruction iff VX != NN */
-    fprintf(stderr, "Skip iff VX != %x ", instruction->bytes.lo_byte);
+    SDL_Log("Skip iff VX != %#x", instruction->bytes.lo_byte);
     if (registers->V[get_nybble(instruction, 1)] != instruction->bytes.lo_byte) {
       registers->PC++; /* skip the next 16-bit instruction */
     }
     break;
   case 5: /* 5XY0 -- skip instruction iff VX == VY */
-    fprintf(stderr, "Skip iff VX == VY ");
+    SDL_Log("Skip iff VX == VY");
     if (registers->V[get_nybble(instruction, 1)] ==
         registers->V[get_nybble(instruction, 2)]) {
       registers->PC++;
     }
     break;
   case 6: /* 6XNN -- set VX = NN */
-    fprintf(stderr, "Set VX to %x ", instruction->bytes.lo_byte);
+    SDL_Log("Set VX to %#x", instruction->bytes.lo_byte);
     registers->V[get_nybble(instruction, 1)] = instruction->bytes.lo_byte;
     break;
   case 7:
     /* 7XNN -- VX += NN */
-    fprintf(stderr, "VX += %x ", instruction->bytes.lo_byte);
+    SDL_Log("VX += %#x", instruction->bytes.lo_byte);
     registers->V[get_nybble(instruction, 1)] += instruction->bytes.lo_byte;
     break;
   case 8: /* logical operators */
-    fprintf(stderr, "Logical Op WIP ");
+    SDL_Log("Logical Op WIP");
     switch (instruction->bytes.lo_byte & 0x0F) {
     case 0: /* 8XY0 -- Set VX to VY */
       goto exit;
@@ -201,7 +207,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
     }
     break;
   case 9: /* 9XY0 -- skip instruction iff VX != VY */
-    fprintf(stderr, "Skip iff VX != VY ");
+    SDL_Log("Skip iff VX != VY");
     if (registers->V[get_nybble(instruction, 1)] !=
         registers->V[get_nybble(instruction, 2)]) {
       registers->PC++;
@@ -275,7 +281,6 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
     break;
   default:
   exit:
-    fprintf(stderr, "\n");
     fprintf(stderr, "invalid opcode or unspecified failure! %i\n", opcode);
     exit(EXIT_FAILURE);
     break;
