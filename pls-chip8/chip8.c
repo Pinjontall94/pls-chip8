@@ -119,10 +119,8 @@ void fetch(Chip8 *chip8, union Instruction *instruction) {
 
   instruction->bytes.lo_byte = peek(chip8, (*PC) + 0);
   instruction->bytes.hi_byte = peek(chip8, (*PC) + 1);
-  SDL_Log("PC before inc: %#.4x -> RAM: %#.2x", *PC, chip8->memory[*PC]);
-  (*PC)++;
-  (*PC)++;
-  SDL_Log("PC after inc: %#.4x -> RAM: %#.2x", *PC, chip8->memory[*PC]);
+  /* Increase the program counter by two to point to the next 16-bit instruction */
+  *PC = *PC + 2;
 }
 
 void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
@@ -133,7 +131,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
                     /* 1110 0000 0000 0000 */
   bitmask = 0xF000; /* 1111 0000 0000 0000 */
   opcode = (instruction->word & bitmask) >>
-           3; /* Pull the first nybble off; ---- ---- ---> 1111 */
+           12; /* Pull the first nybble off; ---- ---- ---> 1111 */
   registers = &chip8->registers;
 
   SDL_Log("instruction: %#.4x", instruction->word);
@@ -157,6 +155,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
       goto exit;
       break;
     }
+    break;
   case 1: /* 1NNN (jump to NNN) */
     SDL_Log("Jump to: %#.4x", get_address(instruction));
     registers->PC = get_address(instruction);
@@ -215,6 +214,7 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
     break;
   case 0xA:
     /* ANNN -- set I = NNN */
+    /*SDL_Log("Set I register to: %#.4x", get_address(instruction));*/
     registers->I = get_address(instruction);
     break;
   case 0xB:
@@ -225,6 +225,11 @@ void decode_and_execute(Chip8 *chip8, union Instruction *instruction) {
     break;
   case 0xD:
     /* DXYN -- display sprite I, N pixels tall, at coordinate VX,VY */
+    SDL_Log("Display Sprite %#.4x, %#.4x pixels tall, at coord V%#.2x,V%#.2x",
+		    registers->I,
+		    opcode & 0x000f,
+		    opcode & 0x0f00,
+		    opcode & 0x00f0);
     x = registers->V[get_nybble(instruction, 1)] %
         64; /* wrap at screen edge if need be */
     y = registers->V[get_nybble(instruction, 2)] % 32;
